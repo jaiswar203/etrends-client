@@ -36,106 +36,38 @@ import {
     TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { IClientDataObject, IClientObject } from '@/redux/api/client'
+import { IClientDataObject } from '@/redux/api/client'
 import { useRouter } from 'next/navigation'
-
-// Define the shape of our data
-interface Company {
-    id: string
-    name: string
-    industry: string
-    email: string
-    status: 'active' | 'inactive' | 'pending'
-    dateJoined: Date
-}
 
 interface IProps {
     data: IClientDataObject[]
 }
 
-// Sample data
-const data: Company[] = [
-    {
-        id: '1',
-        name: 'Acme Corp',
-        industry: 'Technology',
-        email: 'contact@acme.com',
-        status: 'active',
-        dateJoined: new Date('2022-01-15'),
-    },
-    {
-        id: '2',
-        name: 'Globex Corporation',
-        industry: 'Manufacturing',
-        email: 'info@globex.com',
-        status: 'inactive',
-        dateJoined: new Date('2021-11-20'),
-    },
-    {
-        id: '3',
-        name: 'Soylent Corp',
-        industry: 'Food & Beverage',
-        email: 'hello@soylent.com',
-        status: 'pending',
-        dateJoined: new Date('2023-03-01'),
-    },
-    {
-        id: '4',
-        name: 'Initech',
-        industry: 'Technology',
-        email: 'support@initech.com',
-        status: 'active',
-        dateJoined: new Date('2022-07-10'),
-    },
-    {
-        id: '5',
-        name: 'Umbrella Corporation',
-        industry: 'Pharmaceuticals',
-        email: 'info@umbrella.com',
-        status: 'active',
-        dateJoined: new Date('2023-01-05'),
-    },
-    {
-        id: '1',
-        name: 'Acme Corp',
-        industry: 'Technology',
-        email: 'contact@acme.com',
-        status: 'active',
-        dateJoined: new Date('2022-01-15'),
-    },
-    {
-        id: '2',
-        name: 'Globex Corporation',
-        industry: 'Manufacturing',
-        email: 'info@globex.com',
-        status: 'inactive',
-        dateJoined: new Date('2021-11-20'),
-    },
-    {
-        id: '3',
-        name: 'Soylent Corp',
-        industry: 'Food & Beverage',
-        email: 'hello@soylent.com',
-        status: 'pending',
-        dateJoined: new Date('2023-03-01'),
-    },
-    {
-        id: '4',
-        name: 'Initech',
-        industry: 'Technology',
-        email: 'support@initech.com',
-        status: 'active',
-        dateJoined: new Date('2022-07-10'),
-    },
-    {
-        id: '5',
-        name: 'Umbrella Corporation',
-        industry: 'Pharmaceuticals',
-        email: 'info@umbrella.com',
-        status: 'active',
-        dateJoined: new Date('2023-01-05'),
-    },
-]
+const ActionCell = ({ row }: { row: any }) => {
+    const company = row.original
+
+    const router = useRouter()
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                    <span className="sr-only">Open menu</span>
+                    <MoreHorizontal className="h-4 w-4" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                <DropdownMenuItem
+                    onClick={() => navigator.clipboard.writeText(company.id)}
+                >
+                    Copy company ID
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => router.push(`/clients/${company.id}`)}>View customer</DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    )
+}
 
 export const columns: ColumnDef<{ id: string; name: string; industry: string; email: string; status: string; dateJoined: Date; }>[] = [
     {
@@ -206,32 +138,8 @@ export const columns: ColumnDef<{ id: string; name: string; industry: string; em
     {
         id: 'actions',
         enableHiding: false,
-        cell: ({ row }) => {
-            const company = row.original
-
-            const router = useRouter()
-            return (
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem
-                            onClick={() => navigator.clipboard.writeText(company.id)}
-                        >
-                            Copy company ID
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => router.push(`/clients/${company.id}`)}>View customer</DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            )
-        },
-    },
+        cell: ActionCell
+    }
 ]
 
 
@@ -243,7 +151,7 @@ const ClientList: React.FC<IProps> = ({ data: clientData }) => {
     )
 
     // Transform the data into the shape we need
-    const data = clientData.map((client, index) => {
+    const data = clientData.map((client) => {
         return {
             id: client._id,
             name: client.name,
@@ -275,6 +183,7 @@ const ClientList: React.FC<IProps> = ({ data: clientData }) => {
             columnVisibility,
             rowSelection,
         },
+
     })
 
     return (

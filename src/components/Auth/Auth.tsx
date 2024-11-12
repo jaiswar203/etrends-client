@@ -1,7 +1,7 @@
 "use client"
 import React from 'react'
 import { useForm, SubmitHandler } from "react-hook-form"
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel } from '../ui/form'
+import { Form, FormControl, FormField, FormItem, FormLabel } from '../ui/form'
 import { Input } from '../ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
 import Image from 'next/image'
@@ -19,7 +19,7 @@ type LoginFormInputs = {
 }
 
 interface IAuth {
-    isLogin: boolean
+    isLogin?: boolean
 }
 
 const Auth: React.FC<IAuth> = ({ isLogin = true }) => {
@@ -34,7 +34,7 @@ const Auth: React.FC<IAuth> = ({ isLogin = true }) => {
 
     const dispatch = useAppDispatch();
 
-    const [loginUserApi, { isLoading }] = useLoginUserMutation()
+    const [loginUserApi] = useLoginUserMutation()
 
     const onSubmit: SubmitHandler<LoginFormInputs> = async (data) => {
         try {

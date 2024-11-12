@@ -16,9 +16,9 @@ import {
 } from "@/components/ui/accordion"
 import Typography from '@/components/ui/Typography'
 import { ORDER_STATUS_ENUM } from '@/types/client'
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { useFieldArray, useForm } from 'react-hook-form'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import ProductDropdown from '@/components/common/ProductDropdown'
 
 interface OrderProps {
@@ -56,27 +56,27 @@ const OrderDetail: React.FC<OrderProps> = ({ title }) => {
         }
     })
 
-    const { fields: paymentTermsFields, append: appendPaymentTerm, remove: removePaymentTerm } = useFieldArray({
-        control: form.control,
-        name: "payment_terms"
-    });
+    // const { fields: paymentTermsFields, append: appendPaymentTerm, remove: removePaymentTerm } = useFieldArray({
+    //     control: form.control,
+    //     name: "payment_terms"
+    // });
 
-    const handleProductToggle = (productId: string) => {
-        const currentProducts = form.getValues("products");
-        const updatedProducts = currentProducts.includes(productId)
-            ? currentProducts.filter(id => id !== productId)
-            : [...currentProducts, productId];
-        form.setValue("products", updatedProducts);
-    };
+    // const handleProductToggle = (productId: string) => {
+    //     const currentProducts = form.getValues("products");
+    //     const updatedProducts = currentProducts.includes(productId)
+    //         ? currentProducts.filter(id => id !== productId)
+    //         : [...currentProducts, productId];
+    //     form.setValue("products", updatedProducts);
+    // };
 
-    const addPaymentTerm = () => {
-        appendPaymentTerm({
-            name: "",
-            percentage_from_base_cost: "",
-            calculated_amount: 0,
-            date: new Date()
-        });
-    };
+    // const addPaymentTerm = () => {
+    //     appendPaymentTerm({
+    //         name: "",
+    //         percentage_from_base_cost: "",
+    //         calculated_amount: 0,
+    //         date: new Date()
+    //     });
+    // };
 
     const renderFormField = (name: keyof OrderDetailInputs | `payment_terms.${number}.${keyof OrderDetailInputs['payment_terms'][number]}`, label: string, placeholder: string, type: string = "text") => (
         <FormField
@@ -135,7 +135,9 @@ const OrderDetail: React.FC<OrderProps> = ({ title }) => {
                                     <div className="mt-6">
                                         <Typography variant='h4'>Licenses</Typography>
                                     </div>
+                                    <Button type='submit'>Submit</Button>
                                 </form>
+
                             </Form>
                         </div>
                     </AccordionContent>

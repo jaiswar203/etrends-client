@@ -19,7 +19,7 @@ import Image from "next/image"
 import { Avatar, AvatarImage } from "../ui/avatar"
 import { AvatarFallback } from "@radix-ui/react-avatar"
 import { usePathname } from "next/navigation"
-import { useAppSelector, useAppStore } from "@/redux/hook"
+import { useAppSelector } from "@/redux/hook"
 
 // Menu items.
 const items = [

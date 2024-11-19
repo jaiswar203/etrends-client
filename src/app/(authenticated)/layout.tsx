@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "../globals.css";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/common/Sidebar";
+import LayoutWithQuery from "./LayoutWithQuery";
+
 
 export const metadata: Metadata = {
     title: "AMC Dashboard",
@@ -13,13 +13,5 @@ export default function RootLayout({
 }: Readonly<{
     children: React.ReactNode;
 }>) {
-    return (
-        <SidebarProvider>
-            <AppSidebar />
-                <SidebarTrigger  />
-            <main className="p-6 w-full">
-                {children}
-            </main>
-        </SidebarProvider>
-    );
+    return <LayoutWithQuery>{children}</LayoutWithQuery>;
 }

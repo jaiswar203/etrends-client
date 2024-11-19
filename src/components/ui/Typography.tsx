@@ -16,7 +16,7 @@ const Typography: React.FC<TypographyProps> = ({ variant, children, className = 
         h4: `text-base font-medium  ${baseStyles}`,
         p: `text-base leading-relaxed  ${baseStyles}`,
         blockquote: `border-l-4 pl-4 italic text-gray-600  ${baseStyles}`,
-
+        span: `text-sm font-normal  ${baseStyles}`,
     };
 
     const Tag = variant as keyof JSX.IntrinsicElements;

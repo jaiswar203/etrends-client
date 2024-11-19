@@ -13,17 +13,29 @@ import storage from "redux-persist/lib/storage";
 import { thunk } from "redux-thunk";
 import { authApi } from "./api/auth";
 import { clientApi } from "./api/client";
+import { appApi } from "./api/app";
+import { orderApi } from "./api/order";
+import { productApi } from "./api/product";
 
 const rootReducer = combineReducers({
   user: userSlice,
   [authApi.reducerPath]: authApi.reducer,
   [clientApi.reducerPath]: clientApi.reducer,
+  [appApi.reducerPath]: appApi.reducer,
+  [orderApi.reducerPath]: orderApi.reducer,
+  [productApi.reducerPath]: productApi.reducer,
 });
 
 const persistConfig = {
   key: "root",
   storage,
-  blacklist: [authApi.reducerPath, clientApi.reducerPath],
+  blacklist: [
+    authApi.reducerPath,
+    clientApi.reducerPath,
+    appApi.reducerPath,
+    orderApi.reducerPath,
+    productApi.reducerPath,
+  ],
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
@@ -40,7 +52,10 @@ export const makeStore = () =>
       })
         .concat(thunk)
         .concat(authApi.middleware)
-        .concat(clientApi.middleware),
+        .concat(clientApi.middleware)
+        .concat(appApi.middleware)
+        .concat(orderApi.middleware)
+        .concat(productApi.middleware),
   });
 
 // Infer the type of makeStore

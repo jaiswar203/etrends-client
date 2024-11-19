@@ -113,7 +113,7 @@ const ClientDetail: React.FC<IProps> = ({ handler, disable = false, defaultValue
     );
 
     return (
-        <div className='bg-custom-gray p-4'>
+        <div className='bg-custom-gray bg-opacity-75 rounded p-4'>
             <Accordion type="single" collapsible defaultChecked >
                 <AccordionItem value={"client-detail"}>
                     <AccordionTrigger>
@@ -237,6 +237,7 @@ const ClientDetail: React.FC<IProps> = ({ handler, disable = false, defaultValue
                                             </Button>
                                         </div>
                                     </div>
+                                    
                                     <div className="flex justify-end">
                                         <Button type="submit" disabled={disableInput || !form.formState.isDirty || isLoading || !form.formState.isValid} loading={{ isLoading, loader: "tailspin" }} className='w-34'>
                                             <CircleCheck />

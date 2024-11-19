@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import type { RootState } from "../store";
+import { IProduct } from "@/types/product";
 
 export type utilState = {
   user: {
@@ -11,10 +12,12 @@ export type utilState = {
     phone?: string;
     img?: string;
   };
+  products: IProduct[];
 };
 
 const initialState: utilState = {
   user: {},
+  products: [],
 };
 
 export const utilSlice = createSlice({
@@ -27,10 +30,13 @@ export const utilSlice = createSlice({
     logOutUser: (state) => {
       state.user = {};
     },
+    setProducts: (state, action: PayloadAction<IProduct[]>) => {
+      state.products = action.payload;
+    },
   },
 });
 
-export const { setUser, logOutUser } = utilSlice.actions;
+export const { setUser, logOutUser, setProducts } = utilSlice.actions;
 
 export const util = (state: RootState) => state._persist;
 

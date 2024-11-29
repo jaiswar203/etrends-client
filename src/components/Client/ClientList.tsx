@@ -1,6 +1,6 @@
 'use client'
 
-import * as React from 'react'
+import { useState, useMemo } from 'react'
 import {
     ColumnDef,
     ColumnFiltersState,
@@ -13,17 +13,13 @@ import {
     getSortedRowModel,
     useReactTable,
 } from '@tanstack/react-table'
-import { ArrowUpDown, ChevronDown, MoreHorizontal } from 'lucide-react'
+import { ArrowUpDown, ChevronDown } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
     DropdownMenu,
     DropdownMenuCheckboxItem,
     DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
@@ -35,60 +31,14 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
-import { IClientDataObject } from '@/redux/api/client'
+import { GetAllClientResponse } from '@/redux/api/client'
 import { useRouter } from 'next/navigation'
 
 interface IProps {
-    data: IClientDataObject[]
+    data: GetAllClientResponse[]
 }
 
-const ActionCell = ({ row }: { row: any }) => {
-    const company = row.original
-
-    const router = useRouter()
-    return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0">
-                    <span className="sr-only">Open menu</span>
-                    <MoreHorizontal className="h-4 w-4" />
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                <DropdownMenuItem
-                    onClick={() => navigator.clipboard.writeText(company.id)}
-                >
-                    Copy company ID
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => router.push(`/clients/${company.id}`)}>View customer</DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
-    )
-}
-
-export const columns: ColumnDef<{ id: string; name: string; industry: string; email: string; status: string; dateJoined: Date; }>[] = [
-    {
-        id: 'select',
-        header: ({ table }) => (
-            <Checkbox
-                checked={table.getIsAllPageRowsSelected()}
-                onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-                aria-label="Select all"
-            />
-        ),
-        cell: ({ row }) => (
-            <Checkbox
-                checked={row.getIsSelected()}
-                onCheckedChange={(value) => row.toggleSelected(!!value)}
-                aria-label="Select row"
-            />
-        ),
-        enableSorting: false,
-        enableHiding: false,
-    },
+export const columns: ColumnDef<{ id: string; name: string; industry: string; products: string; dateJoined: Date; }>[] = [
     {
         accessorKey: 'name',
         header: ({ column }) => {
@@ -110,21 +60,9 @@ export const columns: ColumnDef<{ id: string; name: string; industry: string; em
         cell: ({ row }) => <div className="capitalize">{row.getValue('industry')}</div>,
     },
     {
-        accessorKey: 'email',
-        header: 'Contact Email',
-        cell: ({ row }) => <div className="lowercase">{row.getValue('email')}</div>,
-    },
-    {
-        accessorKey: 'status',
-        header: 'Status',
-        cell: ({ row }) => {
-            const status = row.getValue('status') as string
-            return (
-                <Badge variant={status === 'active' ? 'success' : status === 'inactive' ? 'destructive' : 'outline'}>
-                    {status}
-                </Badge>
-            )
-        },
+        accessorKey: 'products',
+        header: 'Products',
+        cell: ({ row }) => <div className="">{row.getValue('products')}</div>,
     },
     {
         accessorKey: 'dateJoined',
@@ -135,36 +73,31 @@ export const columns: ColumnDef<{ id: string; name: string; industry: string; em
             return <div>{formatted}</div>
         },
     },
-    {
-        id: 'actions',
-        enableHiding: false,
-        cell: ActionCell
-    }
 ]
 
 
 
 const ClientList: React.FC<IProps> = ({ data: clientData }) => {
-    const [sorting, setSorting] = React.useState<SortingState>([])
-    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    const [sorting, setSorting] = useState<SortingState>([])
+    const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(
         []
     )
+    const router = useRouter()
 
     // Transform the data into the shape we need
-    const data = clientData.map((client) => {
-        return {
+    const data = useMemo(() =>
+        clientData.map((client) => ({
             id: client._id,
             name: client.name,
             industry: client.industry,
-            email: client.point_of_contacts[0].email,
-            status: 'active',
+            products: client.products.join(', '),
             dateJoined: new Date(client.createdAt),
-        }
-    })
+        }))
+        , [clientData])
 
     const [columnVisibility, setColumnVisibility] =
-        React.useState<VisibilityState>({})
-    const [rowSelection, setRowSelection] = React.useState({})
+        useState<VisibilityState>({})
+    const [rowSelection, setRowSelection] = useState({})
 
     const table = useReactTable({
         data,
@@ -192,9 +125,10 @@ const ClientList: React.FC<IProps> = ({ data: clientData }) => {
                 <Input
                     placeholder="Filter companies..."
                     value={(table.getColumn('name')?.getFilterValue() as string) ?? ''}
-                    onChange={(event) =>
-                        table.getColumn('name')?.setFilterValue(event.target.value)
-                    }
+                    onChange={(event) => {
+                        const value = event.target.value;
+                        table.getColumn('name')?.setFilterValue(value);
+                    }}
                     className="max-w-sm"
                 />
                 <DropdownMenu>
@@ -250,6 +184,8 @@ const ClientList: React.FC<IProps> = ({ data: clientData }) => {
                                 <TableRow
                                     key={row.id}
                                     data-state={row.getIsSelected() && 'selected'}
+                                    onClick={() => router.push(`/clients/${row.original.id}`)}
+                                    className='cursor-pointer'
                                 >
                                     {row.getVisibleCells().map((cell) => (
                                         <TableCell key={cell.id}>
@@ -275,10 +211,6 @@ const ClientList: React.FC<IProps> = ({ data: clientData }) => {
                 </Table>
             </div>
             <div className="flex items-center justify-end space-x-2 py-4">
-                <div className="flex-1 text-sm text-muted-foreground">
-                    {table.getFilteredSelectedRowModel().rows.length} of{' '}
-                    {table.getFilteredRowModel().rows.length} row(s) selected.
-                </div>
                 <div className="space-x-2">
                     <Button
                         variant="outline"

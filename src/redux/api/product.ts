@@ -3,6 +3,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { IResponse } from "./auth";
 import { RootState } from "../store";
 import { IProduct } from "@/types/product";
+import { IProductInputs } from "@/components/Product/Create/CreateProduct";
 
 const productUrl = `${process.env.NEXT_PUBLIC_API_URL}/products`;
 
@@ -44,6 +45,20 @@ export const productApi = createApi({
       }),
       invalidatesTags: ["Products"],
     }),
+    getProductById: builder.query<IResponse<IProduct>, string>({
+      query: (id) => `/${id}`,
+    }),
+    updateProductById: builder.mutation<
+      IResponse,
+      { id: string; data: IProductInputs }
+    >({
+      query: ({ id, data }) => ({
+        url: `/${id}`,
+        method: HTTP_REQUEST.PATCH,
+        body: data,
+      }),
+      invalidatesTags: ["Products"],
+    }),
   }),
 });
 
@@ -51,4 +66,6 @@ export const {
   useGetAllProductsQuery,
   useCreateProductMutation,
   useDeleteProductMutation,
+  useUpdateProductByIdMutation,
+  useGetProductByIdQuery,
 } = productApi;

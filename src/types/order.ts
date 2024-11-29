@@ -4,6 +4,7 @@ export interface OrderDetailInputs {
   products: string[];
   base_cost: number;
   training_implementation_cost?: number;
+  total_cost?: number;
   amc_rate: {
     percentage: number;
     amount: number;
@@ -22,11 +23,12 @@ export interface OrderDetailInputs {
     end: Date;
   };
   purchase_order_document: string;
+  purchased_date: Date;
   other_document: {
     title: string;
     url: string;
   };
-  deployment_date: Date;
+  amc_start_date: Date;
   customization: CustomizationDetails;
 }
 
@@ -35,11 +37,15 @@ export interface LicenseDetails {
   total_license: number;
 }
 
+export enum CustomizationType {
+  MODULE = "module",
+  REPORT = "report",
+}
+
 export interface CustomizationDetails {
   cost: number;
-  amc_rate: {
-    percentage: number;
-    amount: number;
-  };
   modules: string[];
+  purchased_date?: Date;
+  purchase_order_document?: string;
+  type?: CustomizationType;
 }

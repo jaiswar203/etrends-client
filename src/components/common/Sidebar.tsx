@@ -40,7 +40,7 @@ const items = [
     },
     {
         title: "AMC",
-        url: "amcs",
+        url: "amc",
         icon: HiOutlineWrenchScrewdriver,
     },
     {
@@ -96,7 +96,7 @@ export function AppSidebar() {
                 </SidebarMenu>
             </SidebarContent>
             <SidebarFooter>
-                <div className="flex gap-2">
+                <div className="flex gap-2 cursor-pointer">
                     <Avatar className="w-16 h-16">
                         <AvatarImage src="https://github.com/shadcn.png" />
                         <AvatarFallback>CN</AvatarFallback>

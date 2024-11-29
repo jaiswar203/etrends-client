@@ -33,7 +33,7 @@ const AddClient = () => {
             <Typography variant='h1' className='text-3xl'>Register New Client & Setup Orders</Typography>
 
             <div className="mt-5">
-                <ClientDetail handler={onAddClientHandler} />
+                <ClientDetail handler={onAddClientHandler} disableAccordion />
             </div>
         </div>
     )

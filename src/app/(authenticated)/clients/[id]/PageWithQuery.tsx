@@ -5,16 +5,20 @@ import { OrderDetailInputs } from '@/types/order'
 import Typography from '@/components/ui/Typography'
 import { toast } from '@/hooks/use-toast'
 import { useGetClientByIdQuery, useUpdateClientMutation } from '@/redux/api/client'
-import { useCreateOrderMutation, useGetFirstOrderByIdQuery, useUpdateFirstOrderMutation } from '@/redux/api/order'
+import { useCreateOrderMutation, useGetOrderByIdQuery, useUpdateOrderMutation } from '@/redux/api/order'
 import { ClientDetailsInputs } from '@/types/client'
 import React from 'react'
+import { useRouter } from 'next/navigation'
 
 const PageWithQuery = ({ id }: { id: string }) => {
     const { data } = useGetClientByIdQuery(id)
     const [updateClientApi] = useUpdateClientMutation()
     const [createOrderApi] = useCreateOrderMutation()
-    const [updateFirstOrderApi] = useUpdateFirstOrderMutation()
-    const { data: firstOrderData } = useGetFirstOrderByIdQuery(id)
+    const [updateFirstOrderApi] = useUpdateOrderMutation()
+    const { data: orderData } = useGetOrderByIdQuery(data?.data.orders[0] ?? '', {
+        skip: !data?.data.orders?.[0]
+    })
+    const router = useRouter()
 
     const updateClientDataHandler = async (data: ClientDetailsInputs) => {
         try {
@@ -35,11 +39,12 @@ const PageWithQuery = ({ id }: { id: string }) => {
 
     const createOrderHandler = async (data: OrderDetailInputs) => {
         try {
-            await createOrderApi({ ...data, client_id: id }).unwrap()
+            const order = await createOrderApi({ ...data, client_id: id }).unwrap()
             toast({
                 variant: "success",
                 title: "Order Created",
             })
+            router.push(`/purchases?id=${order.data._id}`)
         } catch (error: any) {
             toast({
                 variant: "destructive",
@@ -50,7 +55,7 @@ const PageWithQuery = ({ id }: { id: string }) => {
     }
 
     const updateOrderHandler = async (data: OrderDetailInputs) => {
-        if (!firstOrderData?.data._id) {
+        if (!orderData?.data._id) {
             toast({
                 variant: "destructive",
                 title: "Error Occured while updating a client",
@@ -60,7 +65,7 @@ const PageWithQuery = ({ id }: { id: string }) => {
         }
 
         try {
-            await updateFirstOrderApi({ ...data, orderId: firstOrderData?.data._id }).unwrap()
+            await updateFirstOrderApi({ ...data, orderId: orderData?.data._id }).unwrap()
             toast({
                 variant: "success",
                 title: "Order Updated",
@@ -78,10 +83,9 @@ const PageWithQuery = ({ id }: { id: string }) => {
         <div>
             <div>
                 <Typography variant='h1' className='text-3xl'>{data?.data.name}</Typography>
-
                 <div className="mt-5 space-y-10">
                     <ClientDetail defaultValue={data?.data} disable handler={updateClientDataHandler} />
-                    <OrderDetail title="First Order" handler={createOrderHandler} defaultValue={firstOrderData?.data} updateHandler={updateOrderHandler} />
+                    <OrderDetail title="Intial Order" handler={createOrderHandler} defaultValue={orderData?.data} updateHandler={updateOrderHandler} defaultOpen={true} />
                 </div>
             </div>
         </div>

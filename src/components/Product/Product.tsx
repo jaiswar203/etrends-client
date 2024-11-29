@@ -27,7 +27,7 @@ const Product = () => {
                 <Link passHref href={"/products/create"}>
                     <Button>
                         <Plus />
-                        Add Client
+                        Add Product
                     </Button>
                 </Link>
             </div>

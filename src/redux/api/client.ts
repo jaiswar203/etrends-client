@@ -3,23 +3,22 @@ import { HTTP_REQUEST } from "@/contants/request";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { IResponse } from "./auth";
 import { RootState } from "../store";
+import { IProduct } from "@/types/product";
 
 const authUrl = `${process.env.NEXT_PUBLIC_API_URL}/clients`;
 
 export type IClientDataObject = ClientDetailsInputs & {
   _id: string;
   createdAt: string;
+  orders: string[];
 };
-
-export interface IClientObject extends IResponse {
-  data: IClientDataObject;
-}
 
 type IUpdateClientRequest = ClientDetailsInputs & { id: string };
 
-export interface IClientsResponse extends IResponse {
-  data: IClientDataObject[];
-}
+export type GetAllClientResponse = Pick<
+  IClientDataObject & { products: string[] },
+  "name" | "_id" | "createdAt" | "industry" | "orders" | "products"
+>;
 
 export const clientApi = createApi({
   reducerPath: "client",
@@ -33,15 +32,16 @@ export const clientApi = createApi({
   }),
   tagTypes: ["CLIENT_DETAIL", "CLIENT_LIST"],
   endpoints: (builder) => ({
-    getClientById: builder.query<IClientObject, string>({
+    getClientById: builder.query<IResponse<IClientDataObject>, string>({
       query: (id) => `/${id}`,
       providesTags: ["CLIENT_DETAIL"],
     }),
     getClients: builder.query<
-      IClientsResponse,
-      { limit?: number; page?: number }
+      IResponse<GetAllClientResponse[]>,
+      { limit?: number; page?: number; all?: boolean }
     >({
-      query: ({ limit = 10, page = 1 } = {}) => `/?limit=${limit}&page=${page}`,
+      query: ({ limit = 10, page = 1, all = false } = {}) =>
+        `/?limit=${limit}&page=${page}&all=${all}`,
       providesTags: ["CLIENT_LIST"],
     }),
     addClient: builder.mutation<IResponse, ClientDetailsInputs>({
@@ -60,6 +60,12 @@ export const clientApi = createApi({
       }),
       invalidatesTags: ["CLIENT_DETAIL", "CLIENT_LIST"],
     }),
+    getPurchasedProductsByClient: builder.query<
+      IResponse<(IProduct & { order_id: string })[]>,
+      string
+    >({
+      query: (clientId) => `/${clientId}/products`,
+    }),
   }),
 });
 
@@ -68,4 +74,5 @@ export const {
   useGetClientByIdQuery,
   useUpdateClientMutation,
   useGetClientsQuery,
+  useGetPurchasedProductsByClientQuery,
 } = clientApi;

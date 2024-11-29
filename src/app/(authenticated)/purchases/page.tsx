@@ -1,8 +1,14 @@
-import Purchase from '@/components/Purchase/Purchase'
-import React from 'react'
+import Purchase from '@/components/Purchase/Purchase';
+import React from 'react';
 
-const Page = () => {
-    return <Purchase />
-}
+const Page = async ({ searchParams }: { searchParams: { page: string } }) => {
+    const page = (await searchParams).page
 
-export default Page
+    return (
+        <div>
+            <Purchase page={Number(page) || 1} />
+        </div>
+    );
+};
+
+export default Page;

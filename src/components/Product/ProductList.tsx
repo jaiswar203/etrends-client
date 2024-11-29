@@ -31,17 +31,16 @@ import {
     getSortedRowModel,
     useReactTable,
 } from '@tanstack/react-table'
-import { ArrowUpDown, ChevronDown, Clipboard, DeleteIcon, MoreHorizontal, Trash } from 'lucide-react'
+import { ArrowUpDown, ChevronDown, Clipboard, MoreHorizontal, Trash } from 'lucide-react'
 import { Badge } from '../ui/badge'
 import { IProduct } from '@/types/product'
 import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 interface IProps {
     products: IProduct[]
     deleteProduct: (id: string) => void
 }
-
-
 
 const ProductList: React.FC<IProps> = ({ products, deleteProduct }) => {
     const [sorting, setSorting] = useState<SortingState>([])
@@ -49,27 +48,10 @@ const ProductList: React.FC<IProps> = ({ products, deleteProduct }) => {
     const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
     const [rowSelection, setRowSelection] = useState({})
 
+    const router = useRouter()
+
     const columns: ColumnDef<IProduct>[] = useMemo(
         () => [
-            {
-                id: 'select',
-                header: ({ table }: { table: any }) => (
-                    <Checkbox
-                        checked={table.getIsAllPageRowsSelected()}
-                        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-                        aria-label="Select all"
-                    />
-                ),
-                cell: ({ row }: { row: any }) => (
-                    <Checkbox
-                        checked={row.getIsSelected()}
-                        onCheckedChange={(value) => row.toggleSelected(!!value)}
-                        aria-label="Select row"
-                    />
-                ),
-                enableSorting: false,
-                enableHiding: false,
-            },
             {
                 accessorKey: 'name',
                 header: ({ column }: { column: any }) => {
@@ -112,7 +94,7 @@ const ProductList: React.FC<IProps> = ({ products, deleteProduct }) => {
                 enableHiding: false,
                 cell: ({ row }: { row: any }) => {
                     const product = row.original
-        
+
                     return (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -165,7 +147,7 @@ const ProductList: React.FC<IProps> = ({ products, deleteProduct }) => {
         },
     })
 
-    
+
     return (
         <div className="w-full">
             <div className="flex items-center py-4">
@@ -229,7 +211,9 @@ const ProductList: React.FC<IProps> = ({ products, deleteProduct }) => {
                             table.getRowModel().rows.map((row) => (
                                 <TableRow
                                     key={row.id}
+                                    className='cursor-pointer'
                                     data-state={row.getIsSelected() && 'selected'}
+                                    onClick={() => router.push(`/products/${row.original._id}`)}
                                 >
                                     {row.getVisibleCells().map((cell) => (
                                         <TableCell key={cell.id}>

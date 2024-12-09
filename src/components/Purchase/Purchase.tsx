@@ -68,11 +68,11 @@ const Purchase: React.FC<IProps> = ({ page }) => {
     return (
         <div>
             <div className="flex items-center justify-between">
-                <Typography variant='h1' className='text-3xl'>Purchases List</Typography>
+                <Typography variant='h1' className='text-2xl md:text-3xl'>Purchases List</Typography>
                 <DropdownMenu>
                     <DropdownMenuTrigger className='flex gap-2 bg-black text-white rounded py-2 px-3 text-sm items-center cursor-pointer hover:bg-gray-800 transition-colors duration-200'>
-                        <Plus className='w-6' />
-                        Add New Purchase
+                        <Plus className='md:w-6 w-4' />
+                        <span className='text-xs md:text-base'>Add New Purchase</span>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className='w-[200px]'>
                         {dropdownItems.map((item, index) => (

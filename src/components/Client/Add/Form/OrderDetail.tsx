@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useState } from 'react'
+import React, { memo, useCallback, useEffect, useState } from 'react'
 import { Button } from "@/components/ui/button"
 import {
     Form,
@@ -29,7 +29,7 @@ import { useGetUrlForUploadMutation } from '@/redux/api/app'
 import axios from "axios"
 import { v4 } from "uuid"
 import { useToast } from '@/hooks/use-toast'
-import { LicenseDetails, OrderDetailInputs } from '@/types/order'
+import { CustomizationType, LicenseDetails, OrderDetailInputs } from '@/types/order'
 import { useAppSelector } from '@/redux/hook'
 import { IOrderObject } from '@/redux/api/order'
 import {
@@ -39,6 +39,11 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip"
 import Link from 'next/link'
+import { IProduct } from '@/types/product'
+import { ModuleData, ModulesCombobox } from '@/components/Purchase/Form/CustomizationForm'
+import { Textarea } from '@/components/ui/textarea'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from '@/components/ui/dialog'
+import { useUpdateProductByIdMutation } from '@/redux/api/product'
 
 interface OrderProps {
     title?: string
@@ -47,6 +52,7 @@ interface OrderProps {
     updateHandler?: (data: OrderDetailInputs) => Promise<void>
     removeAccordion?: boolean
     defaultOpen?: boolean
+    isLoading: boolean
 }
 
 const StatusOptions = [
@@ -70,11 +76,11 @@ const StatusOptions = [
     },
 ]
 
-const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updateHandler, removeAccordion, defaultOpen = false }) => {
-    const [isLoading, setIsLoading] = useState(false)
+const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updateHandler, removeAccordion, defaultOpen = false, isLoading = false }) => {
     const [disableInput, setDisableInput] = useState(false);
     const [isPercentage, setIsPercentage] = useState({ amc_rate: true, customization_amc_rate: true })
     const [enableCustomization, setEnableCustomization] = useState(true)
+    const [addNewModule, setAddNewModule] = useState<{ add: boolean, value: string, type?: "report" | "module", description: string, product?: string }>({ add: false, value: '', type: 'module', description: '' })
 
     const [getUrlForUploadApi] = useGetUrlForUploadMutation()
 
@@ -85,7 +91,7 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
         if (defaultValue?._id) {
             setDisableInput(true)
 
-            if (defaultValue.customization._id)
+            if (defaultValue?.customization?._id)
                 setEnableCustomization(true)
         }
     }, [defaultValue])
@@ -123,14 +129,14 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                 },
             ],
         agreement_document: "",
-        agreement_date: {
+        agreement_date: [{
             start: undefined,
             end: undefined
-        },
-        training_implementation_cost: 0,
+        }],
         total_cost: 0,
         license: "",
         cost_per_license: 0,
+        invoice_document: "",
         total_license: 0,
         customization: {
             cost: 0,
@@ -138,9 +144,12 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                 percentage: 0,
                 amount: 0
             },
-            modules: ["Module 1"]
+            modules: [],
+            type: "module" as CustomizationType,
+            reports: []
         },
         purchased_date: new Date(),
+        base_cost_seperation: [],
     }
 
     const values = defaultValue && {
@@ -154,14 +163,17 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
         cost_per_license: defaultValue.license?.rate.amount || 0,
         total_license: defaultValue.license?.total_license || 0,
         customization: {
-            cost: defaultValue.customization.cost || 0,
-            modules: defaultValue.customization.modules || []
+            cost: defaultValue?.customization?.cost || 0,
+            modules: defaultValue?.customization?.modules || [],
+            reports: defaultValue?.customization?.reports || [],
+            type: defaultValue?.customization?.type || ("module" as CustomizationType),
         },
         amc_start_date: new Date(defaultValue.amc_start_date),
         other_document: { title: "", url: defaultValue.other_document },
         purchase_order_document: defaultValue.purchase_order_document || "",
-        training_implementation_cost: defaultValue.training_implementation_cost || 0,
-        purchased_date: new Date(defaultValue.purchased_date || new Date())
+        invoice_document: defaultValue.invoice_document || "",
+        purchased_date: new Date(defaultValue.purchased_date || new Date()),
+        base_cost_seperation: defaultValue.base_cost_seperation || []
     }
 
 
@@ -172,20 +184,36 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
         })
     })
 
+    const { fields: baseCostSeparationFields, append: appendBaseCostSeperation, remove: removebaseCostSeparation } = useFieldArray({
+        control: form.control,
+        name: "base_cost_seperation"
+    });
+
     const { fields: paymentTermsFields, append: appendPaymentTerm, remove: removePaymentTerm } = useFieldArray({
         control: form.control,
         name: "payment_terms"
     });
 
-    // Create useFieldArray for customization modules
-    const customizationModulesFields = form.watch("customization.modules")
+    const { fields: agreementDateFields, append: appendAgreementDateFields, remove: removeAgreementDateField } = useFieldArray({
+        control: form.control,
+        name: "agreement_date"
+    })
 
-    const appendCustomizationModule = () => {
-        form.setValue("customization.modules", [...customizationModulesFields, ""])
+    // Create useFieldArray for customization modules
+    const customizationModulesFields = form.watch("customization.modules") || []
+    const reportFields = form.watch("customization.reports") || []
+    const appendCustomizationModule = (value: string, type: "module" | "report" = "module") => {
+        if (type === "module") form.setValue("customization.modules", [...customizationModulesFields, value])
+        else form.setValue("customization.reports", [...(reportFields || []), value])
     }
 
-    const removeCustomizationModule = (index: number) => {
-        form.setValue("customization.modules", customizationModulesFields.filter((_, i) => i !== index))
+    const [updateProductByIdApi] = useUpdateProductByIdMutation()
+
+    const removeCustomizationModule = (index: number, type: "module" | "report" = "module") => {
+        if (type === "module")
+            form.setValue("customization.modules", customizationModulesFields.filter((_, i) => i !== index))
+        else
+            form.setValue("customization.reports", (reportFields || []).filter((_, i) => i !== index))
     }
 
     const addPaymentTerm = () => {
@@ -225,32 +253,103 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
         });
     };
 
+    const reCalculateBaseSeperationCost = (baseCost: number) => {
+        baseCostSeparationFields.forEach((field, index) => {
+            const percentage = field.percentage || 0;
+            if (!percentage) return;
+            const calculatedAmount = (baseCost * percentage) / 100;
+            form.setValue(`base_cost_seperation.${index}.amount`, calculatedAmount);
+        });
+    }
+
+    const recalculateAMCRateBasedOnBaseCost = (baseCost: number) => {
+        const currentAmcRate = form.getValues("amc_rate");
+        const amcPercentage = currentAmcRate.percentage || 0;
+        const licenseCostPerUnit = form.getValues("cost_per_license") || 0;
+        const totalLicenses = form.getValues("total_license") || 0;
+        const customizationCost = form.getValues("customization.cost") || 0;
+
+        const licenseTotalCost = licenseCostPerUnit * totalLicenses;
+        const amcTotalCost = (customizationCost + licenseTotalCost || 0) + baseCost;
+        const calculatedAmount = (amcTotalCost / 100) * amcPercentage;
+
+        form.setValue("amc_rate.amount", calculatedAmount);
+    };
+
     const recalculateAMCRate = (value: number, field: 'percentage' | 'amount') => {
         const baseCost = form.getValues("base_cost");
-        if (!baseCost) return
+        const licenseCostPerUnit = form.getValues("cost_per_license") || 0;
+        const totalLicenses = form.getValues("total_license") || 0;
+        const customizationCost = form.getValues("customization.cost") || 0;
+
+        if (!baseCost) return;
+
+        // Calculate total license cost
+        const licenseTotalCost = licenseCostPerUnit * totalLicenses;
+
+        // Calculate total cost including base cost, license cost and customization
+        const amcTotalCost = (customizationCost + licenseTotalCost || 0) + baseCost;
+
         if (field === 'percentage') {
             const percentage = value || 0;
-            const calculatedAmount = (baseCost * percentage) / 100;
-            console.log({ percentage, calculatedAmount })
+            const calculatedAmount = (amcTotalCost * percentage) / 100;
             form.setValue(`amc_rate.percentage`, value);
             form.setValue(`amc_rate.amount`, calculatedAmount);
         } else {
             const amount = value || 0;
-            const calculatedPercentage = ((amount / baseCost) * 100).toFixed(2);
-            console.log({ amount, calculatedPercentage })
+            const calculatedPercentage = ((amount / amcTotalCost) * 100).toFixed(2);
             form.setValue(`amc_rate.amount`, amount);
             form.setValue(`amc_rate.percentage`, parseFloat(calculatedPercentage));
         }
     }
 
-    const recalculateAMCRateBasedOnBaseCost = (baseCost: number) => {
-        const currentAmcRate = form.getValues("amc_rate");
-        const percentage = currentAmcRate.percentage || 0;
-        const calculatedAmount = (baseCost * percentage) / 100;
+    const calculateTotalCost = () => {
+        // Use parseFloat to handle string inputs and ensure numeric values
+        const baseCost = parseFloat(form.getValues("base_cost")?.toString() || "0");
 
-        form.setValue("amc_rate.amount", calculatedAmount);
-    };
+        const licenseCost = parseFloat(form.getValues("cost_per_license")?.toString() || "0");
+        const totalLicense = parseFloat(form.getValues("total_license")?.toString() || "0");
+        const customizationCost = parseFloat(form.getValues("customization.cost")?.toString() || "0");
 
+        // Handle negative values by using Math.max
+        const sanitizedBaseCost = Math.max(0, baseCost);
+        const sanitizedLicenseCost = Math.max(0, licenseCost);
+        const sanitizedTotalLicense = Math.max(0, totalLicense);
+        const sanitizedCustomizationCost = Math.max(0, customizationCost);
+
+        // Calculate total cost with checks for NaN
+        const licenseTotalCost = sanitizedLicenseCost * sanitizedTotalLicense;
+        const totalCost = sanitizedBaseCost +
+            (isNaN(licenseTotalCost) ? 0 : licenseTotalCost) +
+            sanitizedCustomizationCost;
+
+        // Return 0 if calculation results in NaN or negative value
+        return isNaN(totalCost) ? 0 : Math.max(0, totalCost);
+    }
+
+    const amcRateAfterCustomization = () => {
+        const baseCost = parseFloat(form.getValues("base_cost")?.toString() || "0");
+        const customizationCost = parseFloat(form.getValues("customization.cost")?.toString() || "0");
+        const licenseCostPerUnit = parseFloat(form.getValues("cost_per_license")?.toString() || "0");
+        const totalLicenses = parseFloat(form.getValues("total_license")?.toString() || "0");
+        const amcRate = form.getValues("amc_rate");
+
+        const licenseTotalCost = licenseCostPerUnit * totalLicenses;
+        const amcTotalCost = (customizationCost + licenseTotalCost || 0) + baseCost;
+        const amcRateAfterCustomization = (amcTotalCost * amcRate.percentage) / 100;
+
+        return isNaN(amcRateAfterCustomization) ? 0 : Math.max(0, amcRateAfterCustomization);
+    }
+
+    useEffect(() => {
+        form.setValue("total_cost", calculateTotalCost());
+        form.setValue("amc_rate.amount", amcRateAfterCustomization());
+    }, [
+        form.watch("base_cost"),
+        form.watch("cost_per_license"),
+        form.watch("total_license"),
+        form.watch("customization.cost")
+    ]);
 
     const getSignedUrl = async (file: File, field: keyof OrderDetailInputs) => {
         try {
@@ -276,16 +375,20 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                 title: "File Upload Failed",
                 description: `The file ${file.name} could not be uploaded. Please try again.`,
             });
-
-            console.error(error)
         }
     }
 
+    type RenderFormFieldNameType = keyof OrderDetailInputs | keyof LicenseDetails |
+        `payment_terms.${number}.${keyof OrderDetailInputs['payment_terms'][number]}` |
+        `base_cost_seperation.${number}.${'product_id' | 'percentage' | 'amount'}`
+        | 'customization.cost' | `customization.modules.${number}` | "other_document.url"
+
     const renderFormField = (
-        name: keyof OrderDetailInputs | keyof LicenseDetails | `payment_terms.${number}.${keyof OrderDetailInputs['payment_terms'][number]}` | 'customization.cost' | `customization.modules.${number}` | "other_document.url",
+        name: RenderFormFieldNameType,
         label: string | null,
         placeholder: string,
-        type: string = "text"
+        type: string = "text",
+        optional: boolean = false
     ) => {
         const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: any) => {
             const value = parseFloat(e.target.value) || 0;
@@ -293,6 +396,7 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
 
             // Helper to determine which handler to use
             const getHandler = () => {
+                if (fieldName.includes('base_cost_seperation')) return 'base_cost_seperation';
                 if (fieldName.startsWith('amc_rate')) return 'amc_rate';
                 if (fieldName.includes('payment_terms')) return 'payment_terms';
                 return fieldName;
@@ -304,7 +408,17 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                     field.onChange(e);
                     recalculatePaymentTerms(value);
                     recalculateAMCRateBasedOnBaseCost(value);
-
+                    reCalculateBaseSeperationCost(value);
+                },
+                base_cost_seperation: () => {
+                    const [, index, term] = fieldName.split('.');
+                    if (term === 'percentage') {
+                        const calculatedAmount = (value * form.getValues(`base_cost`)) / 100;
+                        form.setValue(`base_cost_seperation.${parseInt(index)}.amount`, calculatedAmount);
+                        form.setValue(`base_cost_seperation.${parseInt(index)}.percentage`, value);
+                    } else {
+                        field.onChange(e);
+                    }
                 },
                 amc_rate: () => {
                     const amcType = fieldName.split('.')[1] as 'percentage' | 'amount';
@@ -316,7 +430,6 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                         handlePaymentTermChange(parseInt(index), value, term as 'percentage_from_base_cost' | 'calculated_amount');
                     else
                         field.onChange(e);
-
                 }
             };
 
@@ -351,11 +464,11 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                 control={form.control}
                 name={name}
                 render={({ field }) => (
-                    <FormItem className='w-full'>
+                    <FormItem className='w-full mb-4 md:mb-0'>
                         {label && (
                             <FormLabel className='text-gray-500 relative block w-fit'>
                                 {label}
-                                {(type === "file" && field.value && !disableInput) && (
+                                {(type === "file" && field.value && !disableInput) ? (
                                     <TooltipProvider>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
@@ -364,7 +477,7 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                                             <TooltipContent>View File</TooltipContent>
                                         </Tooltip>
                                     </TooltipProvider>
-                                )}
+                                ) : null}
                             </FormLabel>
                         )}
 
@@ -433,6 +546,27 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
             }
         }
 
+        // Validate Invoice Document
+        if (!data.invoice_document) {
+            toast({
+                variant: "destructive",
+                title: "Validation Error",
+                description: "Invoice Document is required"
+            });
+            return;
+        }
+
+        // Validate Agreement Date
+        if (!data.agreement_date?.length || !data.agreement_date[0].start || !data.agreement_date[0].end) {
+            toast({
+                variant: "destructive",
+                title: "Validation Error",
+                description: "Agreement Date is required"
+            });
+            return;
+        }
+
+
         // Return transformed data if all validations pass
         return {
             ...data,
@@ -447,10 +581,10 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                 calculated_amount: Number(term.calculated_amount) || 0,
                 date: term.date ? new Date(term.date) : new Date()
             })),
-            agreement_date: {
-                start: data.agreement_date?.start ? new Date(data.agreement_date.start) : undefined,
-                end: data.agreement_date?.end ? new Date(data.agreement_date.end) : undefined
-            },
+            agreement_date: data.agreement_date.map((date: any) => ({
+                start: date.start ? new Date(date.start) : new Date(),
+                end: date.end ? new Date(date.end) : new Date()
+            })),
             amc_start_date: data.amc_start_date ? new Date(data.amc_start_date) : undefined,
             customization: {
                 cost: Number(data.customization?.cost) || 0,
@@ -464,37 +598,32 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                 cost_per_license: Number(data.cost_per_license) || 0,
                 total_license: Number(data.total_license) || 0
             },
-            training_implementation_cost: Number(data.training_implementation_cost) || 0
         };
     };
 
     const onSubmit: SubmitHandler<OrderDetailInputs> = async (data) => {
-        setIsLoading(true)
         const transformedData = transformFormData(data);
 
-        if (!transformedData) {
-            setIsLoading(false);
-            return;
-        }
+        if (!transformedData) return;
 
         try {
             if (defaultValue?._id && updateHandler) {
-                await updateHandler({ ...transformedData })
-                toast({
-                    variant: "success",
-                    title: "Order Updated",
+                updateHandler({ ...transformedData }).then(() => {
+                    toast({
+                        variant: "success",
+                        title: "Order Updated",
+                    })
                 })
             } else {
-                await handler({ ...transformedData })
-                toast({
-                    variant: "success",
-                    title: "Order Created",
+                handler({ ...transformedData }).then(() => {
+                    toast({
+                        variant: "success",
+                        title: "Order Created",
+                    })
                 })
             }
-            setIsLoading(false)
             setDisableInput(true)
         } catch (error: any) {
-            setIsLoading(false)
             toast({
                 variant: "destructive",
                 title: "Error Occured while updating the order",
@@ -505,55 +634,115 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
 
     if (!products) return null
 
-    const getSelectedProducts = () => {
+    const getSelectedProducts = useCallback(() => {
         const selectedProducts = form.watch("products") || [];
         return products.filter(product => selectedProducts.includes(product._id))
+    }, [form, products]);
+
+
+    const getProductById = (id: string) => products.find(product => product._id === id);
+
+    const onProductSelectHandler = (selectedProducts: IProduct[]) => {
+        // Add new selected products
+        selectedProducts.forEach(product => {
+            if (!baseCostSeparationFields.some(baseCostSeperation => baseCostSeperation.product_id === product._id)) {
+                appendBaseCostSeperation({
+                    product_id: product._id,
+                    amount: 0,
+                    percentage: 0
+                })
+            }
+        });
+
+        // Remove products that are no longer selected
+        const selectedProductIds = selectedProducts.map(p => p._id);
+        baseCostSeparationFields.forEach((field, index) => {
+            if (!selectedProductIds.includes(field.product_id)) {
+                removebaseCostSeparation(index);
+            }
+        });
     }
 
-    const calculateTotalCost = () => {
-        // Use parseFloat to handle string inputs and ensure numeric values
-        const baseCost = parseFloat(form.getValues("base_cost")?.toString() || "0");
-        const trainingCost = parseFloat(form.getValues("training_implementation_cost")?.toString() || "0");
-        const licenseCost = parseFloat(form.getValues("cost_per_license")?.toString() || "0");
-        const totalLicense = parseFloat(form.getValues("total_license")?.toString() || "0");
-        const customizationCost = parseFloat(form.getValues("customization.cost")?.toString() || "0");
+    const createCustomizationModuleComboboxData = () => {
+        const type = form.watch("customization.type") || "module"
 
-        // Handle negative values by using Math.max
-        const sanitizedBaseCost = Math.max(0, baseCost);
-        const sanitizedTrainingCost = Math.max(0, trainingCost);
-        const sanitizedLicenseCost = Math.max(0, licenseCost);
-        const sanitizedTotalLicense = Math.max(0, totalLicense);
-        const sanitizedCustomizationCost = Math.max(0, customizationCost);
+        let data: ModuleData[] = []
 
-        // Calculate total cost with checks for NaN
-        const licenseTotalCost = sanitizedLicenseCost * sanitizedTotalLicense;
-        const totalCost = sanitizedBaseCost +
-            sanitizedTrainingCost +
-            (isNaN(licenseTotalCost) ? 0 : licenseTotalCost) +
-            sanitizedCustomizationCost;
-
-        // Return 0 if calculation results in NaN or negative value
-        return isNaN(totalCost) ? 0 : Math.max(0, totalCost);
+        if (type === "report") {
+            data = []
+            // Create combobox data for modules from the selected products
+            const selectedProducts = getSelectedProducts();
+            selectedProducts.map(product => {
+                const reports = product.reports || [];
+                data.push(...reports.map(report => ({
+                    name: `${product.name} - ${report.name}`,
+                    key: report.key,
+                    description: report.description
+                })))
+            });
+        } else {
+            // Create combobox data for modules from the selected products
+            const selectedProducts = getSelectedProducts();
+            selectedProducts.map(product => {
+                const modules = product.modules || [];
+                data.push(...modules.map(mod => ({
+                    name: `${product.name} - ${mod.name}`,
+                    key: mod.key,
+                    description: mod.description
+                })))
+            });
+        }
+        return data
     }
 
-    const amcRateAfterCustomization = () => {
-        const baseCost = parseFloat(form.getValues("base_cost")?.toString() || "0");
-        const customizationCost = parseFloat(form.getValues("customization.cost")?.toString() || "0");
-        const amcRate = form.getValues("amc_rate");
-        const amcRateAfterCustomization = ((baseCost + customizationCost) * amcRate.percentage) / 100;
-        return isNaN(amcRateAfterCustomization) ? 0 : Math.max(0, amcRateAfterCustomization);
+    const getSelectModules = () => {
+        const type = form.watch("customization.type") || "module"
+        if (type === "module") {
+            const selectedModules = form.watch("customization.modules") || []
+            const allModules: ModuleData[] = []
+            products.forEach(product => {
+                const modules = product.modules || []
+                allModules.push(...modules)
+            })
+            return allModules.filter(mod => selectedModules.includes(mod.key))
+        }
+        if (type === "report") {
+            const selectedReports = form.watch("customization.reports") || []
+            const allReports: ModuleData[] = []
+            products.forEach(product => {
+                const reports = product.reports || []
+                allReports.push(...reports)
+            })
+            return allReports.filter(report => selectedReports.includes(report.key))
+        }
+
+        return []
+
     }
 
-    // use useEffect to update the total cost whenever the base cost, training cost, license cost, total license or customization cost changes
-    useEffect(() => {
-        form.setValue("total_cost", calculateTotalCost());
-    }, [
-        form.watch("base_cost"),
-        form.watch("training_implementation_cost"),
-        form.watch("cost_per_license"),
-        form.watch("total_license"),
-        form.watch("customization.cost")
-    ]);
+    const addCustomModuleInProduct = async (type: "module" | "report" = "module") => {
+        if (!addNewModule.product || !addNewModule.add || !addNewModule.value) return
+        const selectedProduct = products.find(p => p._id === addNewModule.product)
+        if (!selectedProduct) return
+        const key = type === "report" ? "reports" : "modules"
+        try {
+            const newModule = { key: addNewModule.value.toString().replaceAll(" ", "-"), name: addNewModule.value, description: addNewModule.description }
+            await updateProductByIdApi({
+                id: selectedProduct?._id,
+                data: {
+                    [key]: [...selectedProduct[key], newModule]
+                }
+            }).unwrap()
+            appendCustomizationModule(newModule.key, type)
+            setAddNewModule({ add: false, value: "", description: "" })
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Error adding module'
+            })
+        }
+    }
 
     const finalJSX = (
         <div className="mt-1 p-2">
@@ -576,19 +765,22 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
             )}
             <Form {...form}>
                 <form className="space-y-8" onSubmit={form.handleSubmit(onSubmit)}>
-                    <div className="flex items-end gap-4 w-full">
+                    <div className="md:flex items-end gap-4 w-full">
                         <FormField
                             control={form.control}
                             name="products"
                             render={({ field }) => (
-                                <FormItem className='w-full relative'>
+                                <FormItem className='w-full relative mb-4 md:mb-0'>
                                     <FormLabel className='text-gray-500'>Select Products</FormLabel>
                                     <FormControl>
                                         <ProductDropdown
                                             values={defaultValue?.products || []}
                                             isMultiSelect
                                             disabled={disableInput}
-                                            onSelectionChange={(selectedProducts) => field.onChange(selectedProducts.map(product => product._id))}
+                                            onSelectionChange={(selectedProducts) => {
+                                                onProductSelectHandler(selectedProducts)
+                                                field.onChange(selectedProducts.map(product => product._id));
+                                            }}
                                         />
                                     </FormControl>
                                     <FormMessage />
@@ -598,12 +790,37 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                         {renderFormField("base_cost", "Base Cost", "Base Cost of the Product", "number")}
                     </div>
 
-                    <div className="flex items-start gap-4 w-full mt-4">
+                    {
+                        (form.watch("products").length > 1 && baseCostSeparationFields.length > 0) && (
+                            <div className="">
+                                <Typography variant='h3'>Base Cost Seperation</Typography>
+
+                                <div className="mt-2 ">
+                                    {baseCostSeparationFields.map((baseCostSeperation, index) => {
+                                        const product = getProductById(baseCostSeperation.product_id);
+                                        return (
+                                            <div key={index} className="md:flex items-center relative gap-4 w-full mb-7 md:mb-4">
+                                                <FormItem className='w-full'>
+                                                    <FormLabel className='text-gray-500'>Product</FormLabel>
+                                                    <Input type="text" value={product?.name || ""} disabled />
+                                                </FormItem>
+                                                {renderFormField(`base_cost_seperation.${index}.percentage`, "Percentage", "Percentage from Base Cost", "number")}
+                                                {renderFormField(`base_cost_seperation.${index}.amount`, "Amount", "Amount(Auto Calculated)", "number")}
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+                        )
+                    }
+                    <Separator className='bg-gray-300 w-full h-[1px] mt-4' />
+
+                    <div className="md:flex items-start gap-4 w-full mt-4">
                         <FormField
                             control={form.control}
                             name="amc_rate"
                             render={({ field }) => (
-                                <FormItem className='w-full relative'>
+                                <FormItem className='w-full relative mb-4 md:mb-0'>
                                     <FormLabel className='text-gray-500'>AMC Rate (₹{form.watch("amc_rate.amount")})</FormLabel>
                                     <FormControl>
                                         <AmountInput
@@ -677,23 +894,6 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                             )}
                         />
                     </div>
-
-                    <div className="flex items-start gap-4 w-full">
-                        {renderFormField("training_implementation_cost", "Training & Implementation Cost", "Training & Implementation Cost", "number")}
-
-                        <FormItem className='w-full'>
-                            <FormLabel className='text-gray-500 !mb-2'>Total Cost</FormLabel>
-                            <FormControl>
-                                <Input
-                                    type='number'
-                                    value={calculateTotalCost()}
-                                    disabled
-                                    className="bg-white !m-0"
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    </div>
                     <div className="flex items-start gap-4 w-full">
                         <FormField
                             control={form.control}
@@ -708,7 +908,7 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                                 </FormItem>
                             )}
                         />
-                        <div className="w-full"></div>
+                        <div className=" hidden md:block w-full "></div>
                     </div>
 
 
@@ -755,14 +955,14 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
 
 
                     <div className="mt-6">
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center justify-between md:justify-start gap-4">
                             <Typography variant='h3'>Customization</Typography>
                             <Switch checked={enableCustomization} onCheckedChange={(val) => setEnableCustomization(val)} disabled={disableInput} />
                         </div>
                         {
                             enableCustomization && (
                                 <div className="mt-2">
-                                    <div className="flex items-start gap-4 w-full">
+                                    <div className="md:flex items-start gap-4 w-full">
                                         {renderFormField("customization.cost", "Cost of Customization", "Enter customization cost which will add up in the Total Cost", "number")}
                                         <FormItem className='w-full relative'>
                                             <FormLabel className='text-gray-500'>AMC Rate After Customozation</FormLabel>
@@ -777,47 +977,109 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                                             <FormMessage />
                                         </FormItem>
                                     </div>
+                                    <div className="mt-2">
+                                        <FormField
+                                            control={form.control}
+                                            name="customization.type"
+                                            render={({ field }) => (
+                                                <FormItem className='md:w-1/2 mb-4 md:mb-0'>
+                                                    <FormLabel className='text-gray-500'>Type</FormLabel>
+                                                    <FormControl>
+                                                        <Select onValueChange={field.onChange}>
+                                                            <SelectTrigger className="w-full bg-white" disabled={disableInput}>
+                                                                <SelectValue placeholder={`${(field.value || 'module').charAt(0).toUpperCase() + (field.value || 'module').slice(1)}`} />
+                                                            </SelectTrigger>
+                                                            <SelectContent className='bg-white'>
+                                                                {
+                                                                    Object.values(CustomizationType).map((type) => (
+                                                                        <SelectItem value={type} key={type}>
+                                                                            {type.charAt(0).toUpperCase() + type.slice(1)}
+                                                                        </SelectItem>
+                                                                    ))
+                                                                }
 
-                                    <div className="mt-4">
-                                        <FormLabel className='text-gray-500' >Modules</FormLabel>
-                                        <div className="mt-2">
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+                                    <div className="mt-2 md:mt-4">
+                                        <ModulesCombobox
+                                            data={createCustomizationModuleComboboxData()}
+                                            customizationModulesFields={form.watch("customization.type") === "report" ? reportFields : customizationModulesFields}
+                                            disableInput={disableInput}
+                                            appendCustomizationModule={appendCustomizationModule}
+                                            removeCustomizationModule={removeCustomizationModule}
+                                            setAddNewModule={setAddNewModule}
+                                            type={form.watch("customization.type") || "module"}
+                                        />
+                                        <div className="mt-3 md:w-1/2 w-11/12 max-h-96 overflow-y-auto">
+                                            {
+                                                getSelectModules()?.map((mod, index) => (
+                                                    <div className="mb-4 gap-2 relative" key={mod.key}>
+                                                        <Typography variant='h3' className='text-sm font-bold'>{mod.name}</Typography>
+                                                        <Typography variant='p' className='text-xs !text-gray-800 font-medium'>{mod.description || "No Description"}</Typography>
+                                                        <div className="absolute top-0 right-0 cursor-pointer" onClick={() => removeCustomizationModule(index, form.watch("customization.type") || "module")}>
+                                                            <X />
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            }
+                                        </div>
+                                        <Dialog open={addNewModule.add} onOpenChange={(val) => !val && setAddNewModule({ add: false, value: "", description: "" })}>
+                                            <DialogContent>
+                                                <DialogTitle>Add New Module</DialogTitle>
+                                                <DialogDescription className='!mt-0'>This module will automatically will be added in the products</DialogDescription>
+                                                {
+                                                    addNewModule.add && (
+                                                        <div className="">
+                                                            <FormItem className='w-full mb-4 md:mb-0'>
+                                                                <FormControl>
+                                                                    <Select onValueChange={(value) => {
+                                                                        setAddNewModule(prev => ({ ...prev, product: value as string }))
+                                                                    }}>
+                                                                        <SelectTrigger className="w-full bg-white" disabled={disableInput}>
+                                                                            <SelectValue placeholder={"Select a Product"} />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent>
+                                                                            {
+                                                                                products?.map((product) => (
+                                                                                    <SelectItem value={product._id} key={product._id}>{product.name}</SelectItem>
+                                                                                ))
+                                                                            }
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                            <Input placeholder='Title' className='mt-3' onChange={(e) => setAddNewModule(prev => ({ ...prev, value: e.target.value }))} />
+                                                            <Textarea placeholder='Description' className='mt-3 resize-none' rows={4} onChange={(e) => setAddNewModule(prev => ({ ...prev, description: e.target.value }))} />
 
-                                            {customizationModulesFields.map((_, index) => (
-                                                <div key={index} className="flex items-end relative gap-4 w-full mb-4">
-                                                    {renderFormField(`customization.modules.${index}`, null, "Module Name")}
-                                                    {
-                                                        customizationModulesFields.length > 1 && (
-                                                            <Button variant='destructive' onClick={() => removeCustomizationModule(index)} className='rounded-full w-8 h-8 '>
-                                                                <X />
-                                                            </Button>
-                                                        )
-                                                    }
-                                                </div>
-                                            ))}
-                                        </div>
-                                        <div className="flex justify-center mt-4">
-                                            <Button
-                                                type='button'
-                                                disabled={disableInput}
-                                                onClick={() => appendCustomizationModule()}
-                                                className="flex items-center justify-center gap-2 py-5 md:w-72 bg-[#E6E6E6] text-black hover:bg-black hover:text-white group"
-                                            >
-                                                <CirclePlus className='!w-6 !h-6' />
-                                                <Typography variant='p' className='text-black group-hover:text-white'>Add more module</Typography>
-                                            </Button>
-                                        </div>
+                                                            <DialogFooter className='mt-4'>
+                                                                <Button variant='default' className='!p-3 ' type='button' onClick={() => addCustomModuleInProduct(addNewModule.type)}>
+                                                                    Create
+                                                                </Button>
+                                                            </DialogFooter>
+
+                                                        </div>
+                                                    )
+                                                }
+                                            </DialogContent>
+                                        </Dialog>
                                     </div>
                                 </div>
                             )
                         }
                     </div>
 
-
                     <div className="mt-6">
                         <Typography variant='h3'>Payment Terms</Typography>
                         <div className="mt-2">
                             {paymentTermsFields.map((paymentTerm, index) => (
-                                <div key={paymentTerm.id} className="flex items-center relative gap-4 w-full mb-4">
+                                <div key={paymentTerm.id} className="md:flex items-center relative gap-4 w-full mb-7 md:mb-4">
                                     {renderFormField(`payment_terms.${index}.name`, null, "Name of the Payment Term")}
                                     {renderFormField(`payment_terms.${index}.percentage_from_base_cost`, null, "Percentage from Base Cost", "number")}
                                     {renderFormField(`payment_terms.${index}.calculated_amount`, null, "Amount(Auto Calculated)", "number")}
@@ -833,8 +1095,9 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                                             </FormItem>
                                         )}
                                     />
-                                    <Button variant='destructive' onClick={() => removePaymentTerm(index)} className='rounded-full w-8 h-8 ' disabled={disableInput}>
+                                    <Button variant='destructive' onClick={() => removePaymentTerm(index)} className='w-full mt-2 md:mt-2 md:rounded-full md:w-8 md:h-8 ' disabled={disableInput}>
                                         <X />
+                                        <span className='md:hidden block'>Delete</span>
                                     </Button>
 
                                 </div>
@@ -850,47 +1113,17 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                                     <Typography variant='p' className='text-black group-hover:text-white'>Add more terms</Typography>
                                 </Button>
                             </div>
-                            <Separator className='bg-gray-300 w-full h-[1px] mt-4' />
-                            <div className="flex items-end gap-4 w-full mt-6">
-                                {renderFormField("agreement_document", "Agreement Document", "", "file")}
-
-                                <div className="flex items-start justify-between gap-4 w-full">
-                                    <FormField
-                                        control={form.control}
-                                        name={`agreement_date.start`}
-
-                                        render={({ field }) => (
-                                            <FormItem className='w-full relative'>
-                                                <FormLabel className='text-gray-500'>Agreement Start Date</FormLabel>
-                                                <FormControl>
-                                                    <DatePicker date={field.value} onDateChange={field.onChange} placeholder='Pick a Date' disabled={disableInput} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name={`agreement_date.end`}
-                                        render={({ field }) => (
-                                            <FormItem className='w-full relative'>
-                                                <FormLabel className='text-gray-500'>Agreement End Date</FormLabel>
-                                                <FormControl>
-                                                    <DatePicker date={field.value} onDateChange={field.onChange} placeholder='Pick a Date' disabled={disableInput} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                </div>
+                            <div className="md:flex items-start justify-end gap-4 w-full mt-4">
+                                <Typography variant='h3' className='text-gray-500 !mb-2'>Total Cost: <u>₹{calculateTotalCost()}</u></Typography>
+                                <Typography variant='h3' className='text-gray-500 !mb-2'>AMC Amount: <u>₹{form.watch("amc_rate.amount")}</u></Typography>
                             </div>
-                            <div className="flex items-end gap-4 w-full mt-6">
+                            <Separator className='bg-gray-300 w-full h-[1px] ' />
+                            <div className="md:flex items-end gap-4 w-full mt-6">
                                 <FormField
                                     control={form.control}
                                     name={`amc_start_date`}
-
                                     render={({ field }) => (
-                                        <FormItem className='w-full relative'>
+                                        <FormItem className='w-full relative mb-4 md:mb-0'>
                                             <FormLabel className='text-gray-500'>AMC Start Date</FormLabel>
                                             <FormControl>
                                                 <DatePicker date={field.value} onDateChange={field.onChange} placeholder='Pick a Date' disabled={disableInput} />
@@ -899,17 +1132,76 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                                         </FormItem>
                                     )}
                                 />
-                                <div className="flex items-start justify-between gap-4 w-full">
+                                <div className="md:flex  items-start justify-between gap-4 w-full">
                                     {renderFormField("purchase_order_document", "PO Document", "", "file")}
                                     {renderFormField("other_document.url", "Other Document", "", "file")}
+                                </div>
+                            </div>
+                            <div className="md:flex items-end gap-4 w-full mt-6">
+                                {renderFormField("invoice_document", "Invoice Document", "", "file", false)}
+                                {renderFormField("agreement_document", "Agreement Document", "", "file")}
+                            </div>
+                            <div className=" mt-6">
+                                <Typography variant='h3' className='mb-3'>Agreement Date</Typography>
+                                {
+                                    agreementDateFields.map((_, index: number) => (
+                                        <div className="md:flex items-end mb-4 justify-between gap-4 w-full" key={index}>
+                                            <FormField
+                                                control={form.control}
+                                                name={`agreement_date.${index}.start`}
+
+                                                render={({ field }) => (
+                                                    <FormItem className='w-full relative'>
+                                                        <FormLabel className='text-gray-500'>Agreement Start Date</FormLabel>
+                                                        <FormControl>
+                                                            <DatePicker date={field.value} onDateChange={field.onChange} placeholder='Pick a Date' disabled={disableInput} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name={`agreement_date.${index}.end`}
+                                                render={({ field }) => (
+                                                    <FormItem className='w-full relative'>
+                                                        <FormLabel className='text-gray-500'>Agreement End Date</FormLabel>
+                                                        <FormControl>
+                                                            <DatePicker date={field.value} onDateChange={field.onChange} placeholder='Pick a Date' disabled={disableInput} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <Button variant='destructive' onClick={() => removeAgreementDateField(index)} className='w-full mt-2 md:mt-2 md:rounded-full md:w-8 md:h-8 ' disabled={disableInput}>
+                                                <X />
+                                                <span className='md:hidden block'>Delete</span>
+                                            </Button>
+                                        </div>
+                                    ))
+                                }
+                                <div className="flex justify-center mt-4">
+                                    <Button
+                                        type='button'
+                                        disabled={disableInput}
+                                        onClick={() => {
+                                            appendAgreementDateFields({
+                                                start: new Date(),
+                                                end: new Date()
+                                            })
+                                        }}
+                                        className="flex items-center justify-center gap-2 py-5 md:w-72 bg-[#E6E6E6] text-black hover:bg-black hover:text-white group"
+                                    >
+                                        <CirclePlus className='!w-6 !h-6' />
+                                        <Typography variant='p' className='text-black group-hover:text-white'>Add more terms</Typography>
+                                    </Button>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-
                     <div className="flex justify-end">
-                        <Button type="submit" disabled={!form.formState.isDirty || disableInput || isLoading || !form.formState.isValid} loading={{ isLoading, loader: "tailspin" }} className='w-36'>
+                        <Button type="submit" disabled={disableInput || isLoading || !form.formState.isValid} loading={{ isLoading, loader: "tailspin" }} className='w-full py-5 md:py-2 md:w-36'>
                             <CircleCheck />
                             <span className='text-white'>Save changes</span>
                         </Button>

@@ -23,7 +23,7 @@ const Product = () => {
     return (
         <div>
             <div className="flex items-center justify-between">
-                <Typography variant='h1' className='text-3xl'>Product List</Typography>
+                <Typography variant='h1' className='text-2xl md:text-3xl'>Product List</Typography>
                 <Link passHref href={"/products/create"}>
                     <Button>
                         <Plus />

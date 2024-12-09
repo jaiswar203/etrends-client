@@ -50,7 +50,7 @@ export const productApi = createApi({
     }),
     updateProductById: builder.mutation<
       IResponse,
-      { id: string; data: IProductInputs }
+      { id: string; data: Partial<IProductInputs> }
     >({
       query: ({ id, data }) => ({
         url: `/${id}`,

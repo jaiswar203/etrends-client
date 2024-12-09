@@ -2,11 +2,11 @@
 import { Button } from '@/components/ui/button'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { useForm } from 'react-hook-form'
+import { useFieldArray, useForm } from 'react-hook-form'
 import { CircleCheck, CircleX, Eye, Pencil } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
-import { useRouter } from 'next/navigation'
-import { useGetAmcByOrderIdQuery, useGetOrderByIdQuery, useUpdateAMCByOrderIdMutation } from '@/redux/api/order'
+import { renderDisabledInput } from '@/components/ui/disabledInput'
+import { PAYMENT_STATUS_ENUM, useGetAmcByOrderIdQuery, useGetOrderByIdQuery, useUpdateAMCByOrderIdMutation, useUpdateOrderMutation } from '@/redux/api/order'
 import Typography from '../ui/Typography'
 import OrderDetail from '../Client/Add/Form/OrderDetail'
 import { HTMLInputTypeAttribute, useEffect, useState } from 'react'
@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/tooltip"
 import Link from 'next/link'
 import DatePicker from '../ui/datepicker'
+import { OrderDetailInputs } from '@/types/order'
 
 interface IProps {
     orderId: string
@@ -37,6 +38,11 @@ export interface IAmcInputs {
     purchase_order_document: string
     invoice_document: string
     start_date: Date | undefined
+    payments?: {
+        from_date: Date;
+        to_date: Date;
+        status: PAYMENT_STATUS_ENUM;
+    }[];
 }
 
 enum AMC_FREQUENCY {
@@ -57,9 +63,15 @@ interface IDefaultValues {
     amc_frequency_in_months: number
     purchase_order_number: string
     purchase_order_document: string
+    payments?: {
+        from_date: Date;
+        to_date: Date;
+        status: PAYMENT_STATUS_ENUM;
+    }[];
     invoice_document: string
     start_date: Date | undefined
 }
+
 
 const AmcForm: React.FC<{ orderId: string, defaultValue?: IDefaultValues }> = ({ orderId, defaultValue }) => {
     const [updateAMCApi, { isLoading }] = useUpdateAMCByOrderIdMutation()
@@ -71,7 +83,8 @@ const AmcForm: React.FC<{ orderId: string, defaultValue?: IDefaultValues }> = ({
         purchase_order_number: defaultValue?.purchase_order_number || '',
         purchase_order_document: defaultValue?.purchase_order_document || "",
         invoice_document: defaultValue?.invoice_document || "",
-        start_date: defaultValue?.start_date || undefined
+        start_date: defaultValue?.start_date || undefined,
+        payments: defaultValue?.payments || []
     }
 
     const form = useForm<IAmcInputs>({
@@ -80,16 +93,20 @@ const AmcForm: React.FC<{ orderId: string, defaultValue?: IDefaultValues }> = ({
             purchase_order_number: defaultValue?.purchase_order_number ?? '',
             purchase_order_document: defaultValue?.purchase_order_document ?? '',
             invoice_document: defaultValue?.invoice_document ?? '',
-            start_date: defaultValue?.start_date || undefined
+            start_date: defaultValue?.start_date || undefined,
+            payments: defaultValue?.payments || []
         },
         ...(defaultValue && {
             values
         })
     })
+    const {
+        fields: paymentsFields,
+    } = useFieldArray({ control: form.control, name: 'payments', })
 
     const onSubmit = async (data: IAmcInputs) => {
         try {
-            await updateAMCApi({ orderId, data }).unwrap()
+            await updateAMCApi({ orderId, data: { ...data, amc_frequency_in_months: Number(data.amc_frequency_in_months) } }).unwrap()
             toast({
                 variant: 'success',
                 title: 'AMC Created Successfully',
@@ -133,7 +150,7 @@ const AmcForm: React.FC<{ orderId: string, defaultValue?: IDefaultValues }> = ({
                 control={form.control}
                 name={name}
                 render={({ field }) => (
-                    <FormItem className='w-full relative'>
+                    <FormItem className='w-full relative mb-4 md:mb-0'>
                         <FormLabel className='text-gray-500 relative block w-fit'>
                             {label}
                             {(type === "file" && field.value && enableEdit) && (
@@ -157,7 +174,7 @@ const AmcForm: React.FC<{ orderId: string, defaultValue?: IDefaultValues }> = ({
                                     {...field}
                                     disabled={!enableEdit}
                                     onChange={type === 'file' ? (e) => handleFileChange(e, field) : field.onChange}
-                                    value={type === 'file' ? undefined : field.value}
+                                    value={type === 'file' ? undefined : typeof field.value === 'string' || typeof field.value === 'number' ? field.value : undefined}
                                     className='bg-white'
                                     placeholder={placeholder}
                                 />
@@ -167,22 +184,6 @@ const AmcForm: React.FC<{ orderId: string, defaultValue?: IDefaultValues }> = ({
                     </FormItem>
                 )}
             />
-        );
-    }
-
-    const renderDisabledInput = (label: string, value: any, type: HTMLInputTypeAttribute = "text") => {
-        return (
-
-            <FormItem className='w-full'>
-                <FormLabel className='text-gray-500'>{label}</FormLabel>
-                <Input
-                    type={type}
-                    value={value}
-                    className='bg-white'
-                    disabled
-                />
-                <FormMessage />
-            </FormItem>
         );
     }
 
@@ -209,13 +210,12 @@ const AmcForm: React.FC<{ orderId: string, defaultValue?: IDefaultValues }> = ({
 
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 mt-5">
-
-                    <div className="flex items-center gap-4 w-full">
+                    <div className="md:flex items-start gap-4 w-full">
                         <FormField
                             control={form.control}
                             name="start_date"
                             render={({ field }) => (
-                                <FormItem className='w-full'>
+                                <FormItem className='w-full mb-4 md:mb-0'>
                                     <FormLabel className='text-gray-500'>AMC Start Date</FormLabel>
                                     <FormControl>
                                         <DatePicker onDateChange={field.onChange} date={field.value} disabled={!enableEdit} />
@@ -226,17 +226,17 @@ const AmcForm: React.FC<{ orderId: string, defaultValue?: IDefaultValues }> = ({
                         />
                         {renderDisabledInput("Total Cost", defaultValue?.total_cost)}
                     </div>
-                    <div className="flex items-center gap-4 w-full">
+                    <div className="md:flex items-center gap-4 w-full">
                         {renderDisabledInput("AMC Percentage", defaultValue?.amc_percentage)}
                         {renderDisabledInput("AMC Amount(auto-calculated)", defaultValue?.amc_amount)}
                     </div>
 
-                    <div className="flex items-center gap-4 w-full">
+                    <div className="md:flex items-end  gap-4 w-full">
                         <FormField
                             control={form.control}
                             name="amc_frequency_in_months"
                             render={({ field }) => (
-                                <FormItem className='w-full'>
+                                <FormItem className='w-full mb-4 md:mb-0'>
                                     <FormLabel className='text-gray-500'>AMC Frequency</FormLabel>
                                     <FormControl>
                                         <Select onValueChange={field.onChange}>
@@ -263,15 +263,95 @@ const AmcForm: React.FC<{ orderId: string, defaultValue?: IDefaultValues }> = ({
                         />
                         {renderInput("purchase_order_number", "Purchase Order Number", "Enter Purchase Order Number")}
                     </div>
-                    <div className="flex items-center gap-4 w-full">
+                    <div className="md:flex items-center gap-4 w-full">
                         {renderInput("purchase_order_document", "Purchase Order Document", "Upload Purchase Order Document", "file")}
                         {renderInput("invoice_document", "Invoice Document", "Upload Invoice Document", "file")}
+                    </div>
+
+                    <div className="">
+                        <Typography variant='h2' className='mb-3'>Payments</Typography>
+
+                        {
+                            paymentsFields.map((payment, index) => (
+                                <div className="md:flex items-center gap-4 w-full mb-4 px-2" key={payment.id}>
+                                    <FormField
+                                        control={form.control}
+                                        name={`payments.${index}.from_date`}
+                                        render={({ field }) => (
+                                            <FormItem className='w-full mb-4 md:mb-0'>
+                                                <FormLabel className='text-gray-500'>From</FormLabel>
+                                                <FormControl>
+                                                    <DatePicker onDateChange={field.onChange} date={field.value} disabled={true} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name={`payments.${index}.to_date`}
+                                        render={({ field }) => (
+                                            <FormItem className='w-full mb-4 md:mb-0'>
+                                                <FormLabel className='text-gray-500'>To</FormLabel>
+                                                <FormControl>
+                                                    <DatePicker onDateChange={field.onChange} date={field.value} disabled={true} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name={`payments.${index}.status`}
+                                        render={({ field }) => (
+                                            <FormItem className='w-full mb-4 md:mb-0'>
+                                                <FormLabel className='text-gray-500'>Status</FormLabel>
+                                                <FormControl>
+                                                    <Select onValueChange={field.onChange}>
+                                                        <SelectTrigger className="w-full bg-white" disabled={!enableEdit}>
+                                                            <SelectValue placeholder={field.value} className="capitalize" />
+                                                        </SelectTrigger>
+                                                        <SelectContent className='bg-white'>
+                                                            {
+                                                                Object.entries(PAYMENT_STATUS_ENUM)
+                                                                    .filter(([key]) => isNaN(Number(key)))
+                                                                    .map(([key, value]) => (
+                                                                        <SelectItem value={value} key={value} className='capitalize'>
+                                                                            {value === PAYMENT_STATUS_ENUM.PAID ? (
+                                                                                <div className="flex items-center">
+                                                                                    <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
+                                                                                    {value}
+                                                                                </div>
+                                                                            ) : value === PAYMENT_STATUS_ENUM.PARTIAL ? (
+                                                                                <div className="flex items-center">
+                                                                                    <div className="w-2 h-2 rounded-full bg-yellow-500 mr-2"></div>
+                                                                                    {value}
+                                                                                </div>
+                                                                            ) : (
+                                                                                <div className="flex items-center">
+                                                                                    <div className="w-2 h-2 rounded-full bg-red-500 mr-2"></div>
+                                                                                    <span className="capitalize">{value}</span>
+                                                                                </div>
+                                                                            )}
+                                                                        </SelectItem>
+                                                                    ))
+                                                            }
+                                                        </SelectContent>
+                                                    </Select>
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                            ))
+                        }
                     </div>
 
                     {
                         enableEdit &&
                         <div className="flex justify-end">
-                            <Button type="submit" className='w-36' disabled={isLoading || !form.formState.isDirty} loading={{ isLoading, loader: "tailspin" }}>
+                            <Button type="submit" className='md:w-36 w-full py-5 md:py-2' disabled={isLoading || !form.formState.isDirty} loading={{ isLoading, loader: "tailspin" }}>
                                 <CircleCheck />
                                 <span className='text-white'>Save AMC</span>
                             </Button>
@@ -299,7 +379,7 @@ const AMCDetail: React.FC<IProps> = ({ orderId }) => {
         purchase_order_number: '',
         purchase_order_document: '',
         invoice_document: '',
-        start_date: undefined
+        start_date: undefined,
     })
 
     useEffect(() => {
@@ -314,26 +394,54 @@ const AMCDetail: React.FC<IProps> = ({ orderId }) => {
                 purchase_order_number: data?.data.purchase_order_number || '',
                 purchase_order_document: data?.data.purchase_order_document || '',
                 invoice_document: data?.data.invoice_document || '',
-                start_date: data?.data.start_date
+                start_date: data?.data.start_date,
+                payments: data?.data.payments
             })
         }
     }, [data, orderData])
 
     const productsName = data?.data.products.map((product) => product.name).join(', ')
 
+    const [updateFirstOrderApi, { isLoading: isUpdateOrderLoading }] = useUpdateOrderMutation()
+
+    const updateOrderHandler = async (data: OrderDetailInputs) => {
+        if (!orderData?.data._id) {
+            toast({
+                variant: "destructive",
+                title: "Error Occured while updating a client",
+                description: "Please create a first order before updating"
+            })
+            return
+        }
+
+        try {
+            await updateFirstOrderApi({ ...data, orderId: orderData?.data._id }).unwrap()
+            toast({
+                variant: "success",
+                title: "Order Updated",
+            })
+        } catch (error: any) {
+            toast({
+                variant: "destructive",
+                title: "Error Occured while adding a client",
+                description: error?.message || `Please try again and if error still persist contact the developer`
+            })
+        }
+    }
+
     return (
         <>
             <div className='flex items-center'>
-                <Typography variant='h1' className='text-3xl'>{data?.data.client.name} Of {productsName}</Typography>
+                <Typography variant='h1' className='md:text-3xl text-2xl'>{data?.data.client.name} Of {productsName}</Typography>
                 {
                     orderData?.data.status === "active" ?
-                        <div className={`w-4 h-4 rounded-full bg-green-500 ml-2`}></div> :
-                        <div className={`w-4 h-4 rounded-full bg-red-500 ml-2`}></div>
+                        <div className={`md:w-4 md:h-4 w-2.5 h-2.5 rounded-full bg-green-500 ml-2`}></div> :
+                        <div className={`md:w-4 md:h-4 w-2.5 h-2.5 rounded-full bg-red-500 ml-2`}></div>
                 }
             </div>
 
             <br />
-            <OrderDetail title="Ordet Detail" handler={async () => { }} defaultValue={orderData?.data} defaultOpen={false} />
+            <OrderDetail isLoading={isUpdateOrderLoading} title="Order Detail" handler={async () => { }} defaultValue={orderData?.data} updateHandler={updateOrderHandler} defaultOpen={false} />
 
             <AmcForm orderId={orderId} defaultValue={defaultValues} />
         </>

@@ -20,6 +20,7 @@ import { Avatar, AvatarImage } from "../ui/avatar"
 import { AvatarFallback } from "@radix-ui/react-avatar"
 import { usePathname } from "next/navigation"
 import { useAppSelector } from "@/redux/hook"
+import { Bell } from "lucide-react"
 
 // Menu items.
 const items = [
@@ -42,6 +43,11 @@ const items = [
         title: "AMC",
         url: "amc",
         icon: HiOutlineWrenchScrewdriver,
+    },
+    {
+        title: "Reminders",
+        url: "reminders",
+        icon: Bell,
     },
     {
         title: "Reports",

@@ -3,7 +3,6 @@ import { ORDER_STATUS_ENUM } from "./client";
 export interface OrderDetailInputs {
   products: string[];
   base_cost: number;
-  training_implementation_cost?: number;
   total_cost?: number;
   amc_rate: {
     percentage: number;
@@ -21,8 +20,14 @@ export interface OrderDetailInputs {
   agreement_date: {
     start: Date;
     end: Date;
-  };
-  purchase_order_document: string;
+  }[];
+  purchase_order_document?: string;
+  invoice_document: string;
+  base_cost_seperation?: {
+    product_id: string;
+    amount: number;
+    percentage: number;
+  }[];
   purchased_date: Date;
   other_document: {
     title: string;
@@ -45,6 +50,7 @@ export enum CustomizationType {
 export interface CustomizationDetails {
   cost: number;
   modules: string[];
+  reports?: string[];
   purchased_date?: Date;
   purchase_order_document?: string;
   type?: CustomizationType;

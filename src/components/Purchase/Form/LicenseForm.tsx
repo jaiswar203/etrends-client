@@ -19,6 +19,7 @@ import { toast } from '@/hooks/use-toast'
 import { ILicenceObject } from '@/redux/api/order'
 import Link from 'next/link'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { renderDisabledInput } from '@/components/ui/disabledInput'
 
 interface ILicenseProps {
     clientId: string
@@ -40,6 +41,7 @@ export interface ILicenseInputs {
 
 const LicenseForm: React.FC<ILicenseProps> = ({ clientId, handler, isLoading, label, defaultValue, disable = false }) => {
     const { data: productsList } = useGetPurchasedProductsByClientQuery(clientId)
+    const [amcRate, setAmcRate] = useState({ percentage: 0, amount: 0, total_amount: 0 })
     const { uploadFile } = useFileUpload()
 
     const [disableInput, setDisableInput] = useState(disable)
@@ -95,14 +97,19 @@ const LicenseForm: React.FC<ILicenseProps> = ({ clientId, handler, isLoading, la
             </div>
         );
 
+        const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+            form.setValue(name, e.target.value)
+            if (name === 'cost_per_license' || name === "total_license") recalculateAMCAmount()
+        }
+
         return (
             <FormField
                 control={form.control}
                 name={name}
                 render={({ field }) => (
-                    <FormItem className='w-full'>
+                    <FormItem className='w-full mb-4 md:mb-0'>
                         {label && (
-                            <FormLabel className='text-gray-500'>
+                            <FormLabel className='text-gray-500 relative w-fit block'>
                                 {label}
                                 {(type === "file" && field.value && !disableInput) && (
                                     <TooltipProvider>
@@ -123,7 +130,7 @@ const LicenseForm: React.FC<ILicenseProps> = ({ clientId, handler, isLoading, la
                                 <Input
                                     type={type}
                                     {...field}
-                                    onChange={type === 'file' ? (e) => handleFileChange(e, field) : field.onChange}
+                                    onChange={type === 'file' ? (e) => handleFileChange(e, field) : onChange}
                                     value={(type === 'number' && field.value === 0) ? '' : (type === 'file' ? undefined : field.value as string)}
                                     disabled={disableInput}
                                     className='bg-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
@@ -139,13 +146,25 @@ const LicenseForm: React.FC<ILicenseProps> = ({ clientId, handler, isLoading, la
     }
 
     const onSubmit = async (data: ILicenseInputs) => {
-        if (!data.cost_per_license || !data.total_license || !data.product_id || !data.purchase_date || !data.purchase_order_document) {
+        const requiredFields = {
+            cost_per_license: 'Cost Per License',
+            total_license: 'Total License',
+            product_id: 'Product',
+            purchase_date: 'Purchase Date',
+            invoice: 'Invoice Document'
+        };
+
+        const missingFields = Object.entries(requiredFields)
+            .filter(([key]) => !data[key as keyof typeof data])
+            .map(([_, label]) => label);
+
+        if (missingFields.length > 0) {
             toast({
                 variant: "destructive",
                 title: "Error",
-                description: "Please fill all the required fields"
-            })
-            return
+                description: `Please fill the following required fields: ${missingFields.join(', ')}`
+            });
+            return;
         }
         const product = productsList?.data.find((product) => product._id === data.product_id)
         if (!product) {
@@ -165,6 +184,22 @@ const LicenseForm: React.FC<ILicenseProps> = ({ clientId, handler, isLoading, la
         return placeholders[name]?.() || "Select a Product"
     }
 
+    const recalculateAMCAmount = () => {
+        if (!form.getValues('cost_per_license') || !form.getValues('total_license')) return
+
+        const amcPercentage = amcRate.percentage
+        const totalOrderCost = amcRate.total_amount
+        const costPerLicense = form.getValues('cost_per_license') || 0
+        const totalLicenses = form.getValues('total_license') || 0
+
+        const totalLicenseCost = Number(costPerLicense) * Number(totalLicenses)
+        const newAmcAmount = ((totalLicenseCost + totalOrderCost) * amcPercentage) / 100
+
+        setAmcRate(prev => ({
+            ...prev,
+            amount: newAmcAmount
+        }))
+    }
 
     return (
         <div className="bg-custom-gray bg-opacity-75 rounded p-4">
@@ -191,15 +226,21 @@ const LicenseForm: React.FC<ILicenseProps> = ({ clientId, handler, isLoading, la
             </div>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 mt-5">
-                    <div className="flex items-center gap-4 w-full">
+                    <div className="md:flex items-end gap-4 w-full">
                         <FormField
                             control={form.control}
                             name="product_id"
                             render={({ field }) => (
-                                <FormItem className='w-full'>
+                                <FormItem className='w-full mb-4 md:mb-0'>
                                     <FormLabel className='text-gray-500'>Product ID</FormLabel>
                                     <FormControl>
-                                        <Select onValueChange={field.onChange}>
+                                        <Select onValueChange={(value) => {
+                                            field.onChange(value)
+                                            const product = productsList?.data.find((product) => product._id === value)
+                                            if (product) {
+                                                setAmcRate({ percentage: product.amc_rate.percentage, amount: product.amc_rate.amount, total_amount: product.total_cost })
+                                            }
+                                        }}>
                                             <SelectTrigger className="w-full" disabled={disableInput}>
                                                 <SelectValue placeholder={selectPlaceHolder('product_id', field.value)} />
                                             </SelectTrigger>
@@ -216,8 +257,14 @@ const LicenseForm: React.FC<ILicenseProps> = ({ clientId, handler, isLoading, la
                         />
                         {renderFormField('cost_per_license', 'Cost Per License', 'Enter cost per license')}
                     </div>
-                    <div className="flex items-center gap-4 w-full">
+                    <div className="md:flex items-center gap-4 w-full">
                         {renderFormField('total_license', 'Total License', 'Enter total license')}
+                        <div className="md:flex items-start gap-4 w-full">
+                            {renderDisabledInput("AMC Percentage", amcRate.percentage, "number")}
+                            {renderDisabledInput("AMC Amount", amcRate.amount, "number")}
+                        </div>
+                    </div>
+                    <div className="md:flex items-end gap-4 w-full">
                         <FormField
                             control={form.control}
                             name="purchase_date"
@@ -231,13 +278,13 @@ const LicenseForm: React.FC<ILicenseProps> = ({ clientId, handler, isLoading, la
                                 </FormItem>
                             )}
                         />
-                    </div>
-                    <div className="flex items-center gap-4 w-full">
-                        {renderFormField('purchase_order_document', 'Purchase Order Document', 'Upload Purchase Order Document', 'file')}
-                        {renderFormField('invoice', 'Invoice', 'Upload Invoice', 'file')}
+                        <div className="md:flex items-center gap-4 w-full">
+                            {renderFormField('purchase_order_document', 'Purchase Order Document', 'Upload Purchase Order Document', 'file')}
+                            {renderFormField('invoice', 'Invoice', 'Upload Invoice', 'file')}
+                        </div>
                     </div>
                     <div className="flex justify-end">
-                        <Button type="submit" className='w-36' disabled={isLoading || disableInput} loading={{ isLoading, loader: "tailspin" }} >
+                        <Button type="submit" className='md:w-36 w-full py-5 md:py-2' disabled={isLoading || disableInput} loading={{ isLoading, loader: "tailspin" }} >
                             <CircleCheck />
                             <span className='text-white'>Save License</span>
                         </Button>

@@ -31,7 +31,7 @@ const PurchaseDetail: React.FC<IProps> = ({ id, type, clientId }) => {
     const { data: licenseData } = useGetLicenceByIdQuery(id, { skip: type !== PURCHASE_TYPE.LICENSE })
     const { data: additionalServiceData } = useGetAdditionalServiceByIdQuery(id, { skip: type !== PURCHASE_TYPE.ADDITIONAL_SERVICE })
 
-    const [updateFirstOrderApi] = useUpdateOrderMutation()
+    const [updateFirstOrderApi, { isLoading: isUpdateOrderLoading }] = useUpdateOrderMutation()
     const [updateCustomizationApi, { isLoading: isCustomizationApiLoading }] = useUpdateCustomizationByIdMutation()
     const [updateLicenseByIdApi, { isLoading: isUpdateLicenseApiLoading }] = useUpdateLicenseByIdMutation()
     const [updateAdditionalServiceApi, { isLoading: isUpdateAdditionalServiceLoading }] = useUpdateAdditionalServiceByIdMutation()
@@ -127,7 +127,7 @@ const PurchaseDetail: React.FC<IProps> = ({ id, type, clientId }) => {
     const renderPurchaseDetail = () => {
         switch (type) {
             case PURCHASE_TYPE.ORDER:
-                return <OrderDetail title="Order Detail" handler={async () => { }} defaultValue={orderData?.data} updateHandler={updateOrderHandler} defaultOpen={true} removeAccordion />
+                return <OrderDetail isLoading={isUpdateOrderLoading} title="Order Detail" handler={async () => { }} defaultValue={orderData?.data} updateHandler={updateOrderHandler} defaultOpen={true} />
             case PURCHASE_TYPE.CUSTOMIZATION:
                 return <CustomizationForm label='Customization Detail' isLoading={isCustomizationApiLoading} handler={updateCustomizationHandler} defaultValue={customizationData?.data} clientId={clientId} disable={true} />
             case PURCHASE_TYPE.LICENSE:

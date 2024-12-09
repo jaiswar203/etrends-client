@@ -23,7 +23,7 @@ const LayoutWithQuery = ({ children }: Readonly<{
     <SidebarProvider>
       <AppSidebar />
       <SidebarTrigger />
-      <main className="p-6 w-full">{children}</main>
+      <main className="md:p-6 p-2 mt-5 w-full">{children}</main>
     </SidebarProvider>
   );
 };

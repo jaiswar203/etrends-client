@@ -30,7 +30,7 @@ const AddClient = () => {
     }
     return (
         <div>
-            <Typography variant='h1' className='text-3xl'>Register New Client & Setup Orders</Typography>
+            <Typography variant='h1' className='md:text-3xl text-xl'>Register New Client & Setup Orders</Typography>
 
             <div className="mt-5">
                 <ClientDetail handler={onAddClientHandler} disableAccordion />

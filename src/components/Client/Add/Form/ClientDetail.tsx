@@ -1,6 +1,6 @@
 "use client"
 import Typography from '@/components/ui/Typography'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Button } from "@/components/ui/button"
 import {
     Form,
@@ -21,7 +21,7 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { industriesArray } from '@/contants/client'
-import { CircleCheck, Bell, CirclePlus, X, Edit, CircleX } from 'lucide-react'
+import { CircleCheck, Bell, CirclePlus, X, Edit, CircleX, Plus } from 'lucide-react'
 import {
     Accordion,
     AccordionContent,
@@ -30,9 +30,8 @@ import {
 } from "@/components/ui/accordion"
 import { useRouter } from 'next/navigation'
 import { ClientDetailsInputs } from '@/types/client'
-import { IClientDataObject } from '@/redux/api/client'
+import { IClientDataObject, useGetAllParentCompaniesQuery } from '@/redux/api/client'
 import { decrypt } from '@/utils/crypto'
-
 
 interface IProps {
     handler: (data: ClientDetailsInputs) => Promise<string>
@@ -46,9 +45,26 @@ const ClientDetail: React.FC<IProps> = ({ handler, disable = false, defaultValue
     const [isLoading, setIsLoading] = useState(false)
     const router = useRouter()
 
+    const [filteredParentCompany, setFilteredParentCompany] = useState<{ _id: string, name: string }[]>([])
+    const [parentCompanyInput, setParentCompanyInput] = useState({ show: false, value: "" })
+
+    const { data: parentCompanies } = useGetAllParentCompaniesQuery(undefined)
+
+    useEffect(() => {
+        if (parentCompanies && parentCompanies.data.length) setFilteredParentCompany(parentCompanies.data)
+    }, [parentCompanies])
+
+    useEffect(() => {
+        if (defaultValue?._id && defaultValue.parent_company.name) setParentCompanyInput(prev => ({ ...prev, value: defaultValue.parent_company.name }))
+    }, [defaultValue])
+
     const form = useForm<ClientDetailsInputs>({
         defaultValues: {
-            parent_company: "",
+            parent_company: {
+                id: "",
+                name: "",
+                new: false
+            },
             name: "",
             pan_number: "",
             gst_number: "",
@@ -60,7 +76,7 @@ const ClientDetail: React.FC<IProps> = ({ handler, disable = false, defaultValue
         },
         ...(defaultValue && {
             values: {
-                parent_company: defaultValue.parent_company || "",
+                parent_company: defaultValue.parent_company || {},
                 name: defaultValue.name,
                 pan_number: decrypt(defaultValue.pan_number),
                 gst_number: decrypt(defaultValue.gst_number),
@@ -102,7 +118,7 @@ const ClientDetail: React.FC<IProps> = ({ handler, disable = false, defaultValue
             control={form.control}
             name={name}
             render={({ field }) => (
-                <FormItem className='w-full'>
+                <FormItem className='w-full mb-3 md:mb-0'>
                     <FormLabel className='text-gray-500'>{label}</FormLabel>
                     <FormControl>
                         <Input disabled={disableInput} className='bg-white' placeholder={placeholder} type={type} {...field} value={field.value as string} />
@@ -113,8 +129,17 @@ const ClientDetail: React.FC<IProps> = ({ handler, disable = false, defaultValue
         />
     );
 
+    const handleInputChange = (value: string) => {
+        if (value) {
+            setFilteredParentCompany(parentCompanies?.data?.filter(company => company.name.toLowerCase().includes(value.toLowerCase())) || [])
+        } else {
+            setFilteredParentCompany(parentCompanies?.data || [])
+        }
+        setParentCompanyInput(prev => ({ ...prev, value }))
+    }
+
     const finalJsx = (
-        <div className="mt-1 p-2">
+        <div className="mt-1 p-0 md:p-2">
             {defaultValue?._id && (
                 <div className="mb-2 flex justify-end">
                     <Button className={`w-36 justify-between ${!disableInput ? "bg-destructive hover:bg-destructive" : ""}`} onClick={() => setDisableInput(prev => !prev)}>
@@ -134,20 +159,20 @@ const ClientDetail: React.FC<IProps> = ({ handler, disable = false, defaultValue
             )}
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                    <div className="flex items-center gap-4 w-full">
-                        {renderFormField("parent_company", "Parent Company(optional)", "Parent Company Name")}
+                    <div className="md:flex items-end gap-4 w-full">
                         {renderFormField("name", "Name", "Client name")}
+                        {renderFormField("client_id", "Client ID", "Client ID")}
                     </div>
-                    <div className="flex items-center gap-4 w-full !mt-4">
+                    <div className="md:flex items-center gap-4 w-full !mt-4">
                         {renderFormField("pan_number", "Pan Number", "Company Pan Number")}
                         {renderFormField("gst_number", "GST Number", "Client GST Number")}
                     </div>
-                    <div className="flex items-start flex-row-reverse gap-4 w-full !mt-4">
+                    <div className="md:flex items-start flex-row-reverse gap-4 w-full !mt-4">
                         <FormField
                             control={form.control}
                             name="address"
                             render={({ field }) => (
-                                <FormItem className='w-full'>
+                                <FormItem className='w-full mb-2 md:mb-2'>
                                     <FormLabel className='text-gray-500'>Address</FormLabel>
                                     <FormControl>
                                         <Textarea disabled={disableInput} className='bg-white resize-none' placeholder="Client Address" {...field} rows={5} />
@@ -182,16 +207,65 @@ const ClientDetail: React.FC<IProps> = ({ handler, disable = false, defaultValue
                                 )}
                             />
                             {renderFormField("vendor_id", "Vendor ID", "Vendor ID")}
-                            <br />
-                            {renderFormField("client_id", "Client ID", "Client ID")}
+
                         </div>
+                    </div>
+                    <div className="md:flex items-start gap-4 w-full !mt-4">
+                        <FormItem className="w-full">
+                            <FormLabel className='text-gray-500'>Parent Company</FormLabel>
+                            <div className="relative">
+                                <Input
+                                    className=''
+                                    disabled={disableInput}
+                                    onFocus={() => setParentCompanyInput(prev => ({ ...prev, show: true }))}
+                                    onBlur={() => setTimeout(() => setParentCompanyInput(prev => ({ ...prev, show: false })), 300)}
+                                    placeholder="Enter or select a company..."
+                                    value={parentCompanyInput.value}
+                                    onChange={(e) => handleInputChange(e.target.value)}
+                                />
+                                {
+                                    parentCompanyInput.show && (
+                                        <div className="bg-white rounded-b-md shadow-md mt-1 absolute z-30 w-full m-h-40 overflow-y-auto">
+                                            {
+                                                filteredParentCompany.map((company) => (
+                                                    <div key={company._id} className="flex items-center justify-between p-2  cursor-pointer hover:bg-gray-50" onClick={() => {
+                                                        form.setValue("parent_company.id", company._id)
+                                                        form.setValue("parent_company.name", company.name)
+                                                        form.setValue("parent_company.new", false)
+                                                        setParentCompanyInput(prev => ({ ...prev, value: company.name }))
+                                                    }}>
+                                                        <Typography variant='p' className='text-sm'>{company.name}</Typography>
+                                                    </div>
+                                                ))
+                                            }
+                                            {
+                                                parentCompanyInput && filteredParentCompany.length === 0 && (
+                                                    <div className="flex items-center justify-center p-2 w-full gap-2 cursor-pointer" onClick={() => {
+                                                        form.setValue("parent_company.new", true)
+                                                        form.setValue("parent_company.id", "")
+                                                        form.setValue("parent_company.name", parentCompanyInput.value)
+                                                    }}>
+                                                        <Plus className='!w-6 !h-6' />
+                                                        <Typography variant='p' className='text-sm'>
+                                                            Add {parentCompanyInput.value}
+                                                        </Typography>
+                                                    </div>
+                                                )
+                                            }
+                                        </div>
+                                    )
+                                }
+                            </div>
+
+                        </FormItem>
+                        <div className="hidden sm:block w-full"></div>
                     </div>
 
                     <div className="mt-6">
                         <Typography variant='h4'>Point of Contacts(POC)</Typography>
 
                         {fields.map((field, index) => (
-                            <div key={field.id} className={`flex justify-between items-end mt-2 gap-4 relative ${fields.length > 1 ? "mb-6" : ""} rounded p-2 bg-white`}>
+                            <div key={field.id} className={`md:flex justify-between items-end mt-2 gap-4 relative ${fields.length > 1 ? "mb-6" : ""} rounded p-2 bg-white`}>
                                 {renderFormField(`point_of_contacts.${index}.name`, "Name", "Name")}
                                 {renderFormField(`point_of_contacts.${index}.email`, "Email", "Email", "email")}
                                 {renderFormField(`point_of_contacts.${index}.phone`, "Phone", "Phone")}
@@ -204,7 +278,7 @@ const ClientDetail: React.FC<IProps> = ({ handler, disable = false, defaultValue
                                     disabled={disableInput}
                                 >
                                     <Bell />
-                                    <span>Select for Reminder</span>
+
                                 </Button>
 
                                 {index > 0 && !disableInput && (
@@ -232,9 +306,8 @@ const ClientDetail: React.FC<IProps> = ({ handler, disable = false, defaultValue
                             </Button>
                         </div>
                     </div>
-
                     <div className="flex justify-end">
-                        <Button type="submit" disabled={disableInput || !form.formState.isDirty || isLoading || !form.formState.isValid} loading={{ isLoading, loader: "tailspin" }} className='w-34'>
+                        <Button type="submit" disabled={disableInput} loading={{ isLoading, loader: "tailspin" }} className='w-full md:w-36 '>
                             <CircleCheck />
                             <span className='text-white'>Save changes</span>
                         </Button>

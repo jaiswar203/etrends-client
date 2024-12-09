@@ -11,9 +11,9 @@ import {
     FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { SubmitHandler, useForm } from 'react-hook-form'
+import { SubmitHandler, useFieldArray, useForm } from 'react-hook-form'
 import { Textarea } from '@/components/ui/textarea'
-import { CircleCheck, CircleX, Pencil } from 'lucide-react'
+import { CircleCheck, CircleX, Pencil, Plus } from 'lucide-react'
 import {
     Accordion,
     AccordionContent,
@@ -42,6 +42,8 @@ const CreateProduct: React.FC<IProps> = ({ handler, disable = false, defaultValu
             short_name: "",
             does_have_license: false,
             description: "",
+            modules: [],
+            reports: []
         },
         ...(defaultValue && {
             values: {
@@ -49,8 +51,20 @@ const CreateProduct: React.FC<IProps> = ({ handler, disable = false, defaultValu
                 short_name: defaultValue.short_name,
                 does_have_license: defaultValue.does_have_license,
                 description: defaultValue.description,
+                modules: defaultValue.modules || [],
+                reports: defaultValue.reports || []
             }
         })
+    })
+
+    const { fields: modulesField, append: appendModules, remove: removeModules } = useFieldArray({
+        control: form.control,
+        name: "modules"
+    })
+
+    const { fields: reportsField, append: appendReports, remove: removeReports } = useFieldArray({
+        control: form.control,
+        name: "reports"
     })
 
     const onSubmit: SubmitHandler<IProductInputs> = async (data) => {
@@ -65,6 +79,15 @@ const CreateProduct: React.FC<IProps> = ({ handler, disable = false, defaultValu
             setIsLoading(false)
             return
         }
+
+        // Add keys to the modules array ifs its name is present, key is small letter name and if any space the  - is added
+        data.modules = data.modules.map(mod => {
+            if (mod.name) {
+                mod.key = mod.name.toLowerCase().replace(" ", "-")
+            }
+            return mod
+        })
+
         try {
             await handler(data)
             setIsLoading(false)
@@ -78,7 +101,7 @@ const CreateProduct: React.FC<IProps> = ({ handler, disable = false, defaultValu
             control={form.control}
             name={name}
             render={({ field }) => (
-                <FormItem className='w-full'>
+                <FormItem className='w-full mb-2 md:mb-0'>
                     <FormLabel className='text-gray-500'>{label}</FormLabel>
                     <FormControl>
                         <Input disabled={disableInput} className='bg-white' placeholder={placeholder} {...field} />
@@ -111,7 +134,7 @@ const CreateProduct: React.FC<IProps> = ({ handler, disable = false, defaultValu
 
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                    <div className="flex items-center gap-4 w-full">
+                    <div className="md:flex items-center gap-4 w-full">
                         {renderFormField("name", "Product Name", "Enter product name")}
                         {renderFormField("short_name", "Short Name", "Enter short name")}
                     </div>
@@ -156,6 +179,124 @@ const CreateProduct: React.FC<IProps> = ({ handler, disable = false, defaultValu
                             </FormItem>
                         )}
                     />
+
+                    <div className="">
+                        <Typography variant='p' className='font-semibold'>Modules</Typography>
+                        <div className={`flex flex-col gap-4 mt-2  ${modulesField.length ? "items-center" : " items-start"} `} >
+                            {
+                                modulesField.map((field, index) => (
+                                    <div key={field.id} className="flex items-start gap-4 w-full relative">
+                                        <FormField
+                                            control={form.control}
+                                            name={`modules.${index}.name`}
+                                            render={({ field }) => (
+                                                <FormItem className='w-full'>
+                                                    <FormControl>
+                                                        <Input
+                                                            disabled={disableInput}
+                                                            className='bg-white'
+                                                            placeholder="Module Name"
+                                                            {...field}
+                                                        />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name={`modules.${index}.description`}
+                                            render={({ field }) => (
+                                                <FormItem className='w-full '>
+                                                    <FormControl>
+                                                        <Textarea
+                                                            disabled={disableInput}
+                                                            className='bg-white'
+                                                            placeholder="Description"
+                                                            {...field}
+                                                        />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <div
+                                            className='absolute -right-4 -top-4 p-2 cursor-pointer'
+                                            onClick={() => removeModules(index)}
+                                        >
+                                            <CircleX />
+                                        </div>
+                                    </div>
+                                ))
+                            }
+                            <Button
+                                className='w-36 justify-between'
+                                onClick={() => appendModules({ name: "", key: "", description: "" })}
+                                type='button'
+                                disabled={disableInput}
+                            >
+                                <Plus className='!w-6 !h-6' />
+                                <span>Add Module</span>
+                            </Button>
+                        </div>
+                    </div>
+                    <div className="">
+                        <Typography variant='p' className='font-semibold'>Reports</Typography>
+                        <div className={`flex flex-col gap-4 mt-2  ${modulesField.length ? "items-center" : " items-start"} `} >
+                            {
+                                reportsField.map((field, index) => (
+                                    <div key={field.id} className="flex items-start gap-4 w-full relative">
+                                        <FormField
+                                            control={form.control}
+                                            name={`reports.${index}.name`}
+                                            render={({ field }) => (
+                                                <FormItem className='w-full'>
+                                                    <FormControl>
+                                                        <Input
+                                                            disabled={disableInput}
+                                                            className='bg-white'
+                                                            placeholder="Module Name"
+                                                            {...field}
+                                                        />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name={`reports.${index}.description`}
+                                            render={({ field }) => (
+                                                <FormItem className='w-full '>
+                                                    <FormControl>
+                                                        <Textarea
+                                                            disabled={disableInput}
+                                                            className='bg-white'
+                                                            placeholder="Description"
+                                                            {...field}
+                                                        />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <div
+                                            className='absolute -right-4 -top-4 p-2 cursor-pointer'
+                                            onClick={() => removeReports(index)}
+                                        >
+                                            <CircleX />
+                                        </div>
+                                    </div>
+                                ))
+                            }
+                            <Button
+                                className='w-36 justify-between'
+                                onClick={() => appendReports({ name: "", key: "", description: "" })}
+                                type='button'
+                                disabled={disableInput}
+                            >
+                                <Plus className='!w-6 !h-6' />
+                                <span>Add Module</span>
+                            </Button>
+                        </div>
+                    </div>
+
 
                     <div className="flex justify-end">
                         <Button

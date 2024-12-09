@@ -12,7 +12,7 @@ const Client = () => {
     return (
         <div>
             <div className="flex items-center justify-between">
-                <Typography variant='h1' className='text-3xl'>Client List</Typography>
+                <Typography variant='h1' className='text-2xl md:text-3xl'>Client List</Typography>
                 <Link passHref href={"/clients/add"}>
                     <Button>
                         <Plus />

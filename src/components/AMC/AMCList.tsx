@@ -28,6 +28,15 @@ import { Input } from '../ui/input'
 import Typography from '../ui/Typography'
 import { TransformedAMCObject } from '@/redux/api/order'
 import { useRouter } from 'next/navigation'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import {
+    DropdownMenu,
+    DropdownMenuCheckboxItem,
+    DropdownMenuContent,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { useAppSelector } from '@/redux/hook'
+import { AMC_FILTER } from './AMC'
 
 type AMC = {
     id: string
@@ -39,6 +48,7 @@ type AMC = {
 
 interface IProps {
     data: TransformedAMCObject[]
+    changeFilter: (filter: AMC_FILTER) => void
 }
 
 type TableData = {
@@ -46,7 +56,7 @@ type TableData = {
     client: string;
     order: string;
     status: string;
-    purchased_date: string;
+    due_date: string;
     orderId: string
 }
 
@@ -61,39 +71,51 @@ const columns: ColumnDef<TableData>[] = [
     },
     {
         accessorKey: 'status',
-        header: 'Status',
+        header: 'Payment Status',
         cell: ({ row }) => {
             const status = row.getValue('status') as string
             return (
-                <Badge variant={status === 'active' ? 'success' : 'destructive'}>
+                <Badge variant={status !== 'pending' ? 'success' : 'destructive'}>
                     {status}
                 </Badge>
             )
         },
     },
     {
-        accessorKey: 'purchased_date',
-        header: 'Purchased Date',
+        accessorKey: 'due_date',
+        header: 'Due Date',
     },
 ]
 
-const AMCList: React.FC<IProps> = ({ data }) => {
+const AMCList: React.FC<IProps> = ({ data, changeFilter }) => {
     const [sorting, setSorting] = useState<SortingState>([])
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
     const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
     const [rowSelection, setRowSelection] = useState({})
     const router = useRouter()
 
+    const products = useAppSelector((state) => state.user.products)
+
     const tableData = useMemo(() => {
         return data.map((d) => ({
             id: d._id,
             client: d.client.name,
-            order: d.products.map((p) => p.name).join(', '),
-            status: d.order.status,
-            purchased_date: new Date(d.order.purchased_date).toLocaleDateString(),
-            orderId: d.order._id
+            order: d.products.map((p) => p.short_name).join(', '),
+            status: d.last_payment?.status || '',
+            due_date: new Date(d.last_payment?.to_date ?? '').toLocaleDateString(),
+            orderId: d.order._id,
         }))
     }, [data])
+
+    // Extract unique clients and products
+    const uniqueClients = useMemo(
+        () => Array.from(new Set(tableData.map((d) => d.client))),
+        [tableData]
+    )
+    const uniqueProducts = useMemo(
+        () => [...new Set(products.map((product) => product.short_name))],
+        [products]
+    )
 
     const table = useReactTable({
         data: tableData,
@@ -117,7 +139,7 @@ const AMCList: React.FC<IProps> = ({ data }) => {
     return (
         <div>
             <Typography variant="h1">AMC List</Typography>
-            <div className="flex items-center py-4">
+            <div className="flex items-center justify-between py-4">
                 <Input
                     placeholder="Filter clients..."
                     value={(table.getColumn('client')?.getFilterValue() as string) ?? ''}
@@ -126,6 +148,82 @@ const AMCList: React.FC<IProps> = ({ data }) => {
                     }
                     className="max-w-sm"
                 />
+                <div className="flex item-center gap-4">
+                    {/* Clients Dropdown */}
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="ml-auto">
+                                {(table.getColumn('client')?.getFilterValue() as string) ?? 'Clients'}{' '}
+                                <ChevronDown className="ml-2 h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            {uniqueClients.map((client) => (
+                                <DropdownMenuCheckboxItem
+                                    key={client}
+                                    className="capitalize"
+                                    checked={
+                                        table.getColumn('client')?.getFilterValue() === client
+                                    }
+                                    onCheckedChange={(value) => {
+                                        table
+                                            .getColumn('client')
+                                            ?.setFilterValue(value ? client : '')
+                                    }}
+                                >
+                                    {client}
+                                </DropdownMenuCheckboxItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    {/* Products Dropdown */}
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="ml-auto">
+                                {(table.getColumn('order')?.getFilterValue() as string) || 'Products'} <ChevronDown className="ml-2 h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            {uniqueProducts.map((product) => (
+                                <DropdownMenuCheckboxItem
+                                    key={product}
+                                    className="capitalize"
+                                    checked={
+                                        table.getColumn('order')?.getFilterValue() === product
+                                    }
+                                    onCheckedChange={(value) => {
+                                        table
+                                            .getColumn('order')
+                                            ?.setFilterValue(value ? product : '')
+                                    }}
+                                >
+                                    {product}
+                                </DropdownMenuCheckboxItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <Select
+                        defaultValue={AMC_FILTER.UPCOMING}
+                        onValueChange={(value: AMC_FILTER) => {
+                            // reset all filters
+                            table.resetColumnFilters()
+                            changeFilter(value)
+                        }}
+                    >
+                        <SelectTrigger className="w-[180px] capitalize">
+                            <SelectValue placeholder="Select Filter" />
+                        </SelectTrigger>
+                        <SelectContent>
+                        {Object.values(AMC_FILTER).map((filter) => (
+                            <SelectItem key={filter} className="cursor-pointer capitalize" value={filter}>
+                                {filter} AMC
+                            </SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
             <div className="rounded-md border">
                 <Table>
@@ -150,7 +248,7 @@ const AMCList: React.FC<IProps> = ({ data }) => {
                             table.getRowModel().rows.map((row) => (
                                 <TableRow
                                     key={row.id}
-                                    className='cursor-pointer'
+                                    className="cursor-pointer"
                                     data-state={row.getIsSelected() && 'selected'}
                                     onClick={() => router.push(`/amc/${row.original.orderId}`)}
                                 >
@@ -191,7 +289,6 @@ const AMCList: React.FC<IProps> = ({ data }) => {
                     </Button>
                 </div>
             </div>
-
         </div>
     )
 }

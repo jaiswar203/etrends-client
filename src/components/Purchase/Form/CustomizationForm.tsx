@@ -4,9 +4,9 @@ import { Input } from '@/components/ui/input'
 import Typography from '@/components/ui/Typography'
 import { useGetPurchasedProductsByClientQuery } from '@/redux/api/client'
 import { CustomizationDetails, CustomizationType } from '@/types/order'
-import { CircleCheck, CirclePlus, CircleX, Eye, Pencil, X } from 'lucide-react'
+import { Check, ChevronsUpDown, CircleCheck, CirclePlus, CircleX, Eye, Pencil, Plus, X } from 'lucide-react'
 import React, { HTMLInputTypeAttribute, useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useFieldArray, useForm } from 'react-hook-form'
 import {
     Select,
     SelectContent,
@@ -16,10 +16,34 @@ import {
 } from "@/components/ui/select"
 import { useFileUpload } from '@/hooks/useFileUpload'
 import DatePicker from '@/components/ui/datepicker'
-import { toast } from '@/hooks/use-toast'
+import { toast, useToast } from '@/hooks/use-toast'
 import { ICustomizationObject } from '@/redux/api/order'
 import Link from 'next/link'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { renderDisabledInput } from '@/components/ui/disabledInput'
+import { IProduct } from '@/types/product'
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogTitle,
+} from "@/components/ui/dialog"
+import { useUpdateProductByIdMutation } from '@/redux/api/product'
+import { Textarea } from '@/components/ui/textarea'
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command"
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover"
 
 interface ICustomationProps {
     clientId: string
@@ -32,13 +56,142 @@ interface ICustomationProps {
 
 export interface ICustomizationInputs extends CustomizationDetails {
     product_id: string
+    invoice_document: string
+    title?: string
 }
 
+export interface ModuleData {
+    key: string;
+    name: string;
+    description: string;
+}
+
+interface ModulesComboboxProps {
+    data: ModuleData[];
+    customizationModulesFields: string[];
+    disableInput: boolean;
+    appendCustomizationModule: (key: string, type?: "module" | "report") => void;
+    removeCustomizationModule: (index: number, type?: "module" | "report") => void;
+    setAddNewModule: React.Dispatch<
+        React.SetStateAction<{
+            add: boolean;
+            value: string;
+            description: string;
+            type?: "module" | "report";
+        }>
+    >;
+    type?: "module" | "report";
+}
+
+export function ModulesCombobox({
+    data,
+    customizationModulesFields,
+    disableInput,
+    appendCustomizationModule,
+    removeCustomizationModule,
+    setAddNewModule,
+    type = "module",
+}: ModulesComboboxProps) {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <div className="flex justify-start items-center gap-2">
+                <FormLabel className="text-gray-500">
+                    {type === "module" ? "Modules" : "Reports"}
+                </FormLabel>
+                <PopoverTrigger asChild>
+                    <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={open}
+                        className="w-[200px] justify-between"
+                        disabled={disableInput}
+                    >
+                        {`Select ${type}...`}
+                        <ChevronsUpDown className="h-4 w-4" />
+                    </Button>
+                </PopoverTrigger>
+            </div>
+            <PopoverContent className="w-[300px] p-0">
+                <Command>
+                    <CommandInput placeholder={`Search ${type}...`} />
+                    <CommandList>
+                        <CommandEmpty>No {type} found.</CommandEmpty>
+                        <CommandGroup>
+                            {data.map((module) => (
+                                <CommandItem
+                                    key={module.key}
+                                    value={module.key}
+                                    onSelect={() => {
+                                        setOpen(false);
+                                    }}
+                                >
+                                    <div className="flex items-center gap-2 w-full">
+                                        <span>{module.name}</span>
+                                        {customizationModulesFields.includes(module.key) ? (
+                                            <Button
+                                                variant="destructive"
+                                                disabled={disableInput}
+                                                className="ml-auto !p-3"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    removeCustomizationModule(
+                                                        customizationModulesFields.indexOf(module.key),
+                                                        type
+                                                    );
+                                                }}
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </Button>
+                                        ) : (
+                                            <Button
+                                                variant="default"
+                                                disabled={disableInput}
+                                                className="ml-auto !p-3"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    appendCustomizationModule(module.key, type);
+                                                }}
+                                            >
+                                                <CirclePlus className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                    </div>
+                                </CommandItem>
+                            ))}
+                        </CommandGroup>
+                    </CommandList>
+                </Command>
+                <div className="p-2 border-t">
+                    <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() =>
+                            setAddNewModule((prev) => ({ ...prev, add: true, type }))
+                        }
+                    >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add New {type.charAt(0).toUpperCase() + type.slice(1)}
+                    </Button>
+                </div>
+            </PopoverContent>
+        </Popover>
+    );
+}
+
+
 const CustomizationForm: React.FC<ICustomationProps> = ({ clientId, handler, isLoading = false, label, disable = false, defaultValue }) => {
+    const [amcRate, setAmcRate] = useState({ percentage: 0, amount: 0, total_amount: 0 })
     const { data: productsList } = useGetPurchasedProductsByClientQuery(clientId)
     const { uploadFile } = useFileUpload()
+    const [selectedProduct, setSelectedProduct] = useState<IProduct | null>()
+    const [addNewModule, setAddNewModule] = useState<{ add: boolean, value: string, type?: "report" | "module", description: string }>({ add: false, value: '', description: '' })
 
+    const [updateProductByIdApi] = useUpdateProductByIdMutation()
     const [disableInput, setDisableInput] = useState(disable)
+
+    const { toast } = useToast()
 
     const values = defaultValue && {
         product_id: defaultValue.product_id,
@@ -46,16 +199,22 @@ const CustomizationForm: React.FC<ICustomationProps> = ({ clientId, handler, isL
         modules: defaultValue.modules,
         purchase_order_document: defaultValue.purchase_order_document,
         purchased_date: defaultValue.purchased_date ? new Date(defaultValue.purchased_date) : undefined,
-        type: defaultValue.type
+        type: defaultValue.type,
+        invoice_document: defaultValue.invoice_document,
+        title: defaultValue?.title || "",
+        reports: defaultValue?.reports || []
     }
 
     const defaultValues = {
         product_id: defaultValue?.product_id || '',
         cost: defaultValue?.cost || 0,
-        modules: defaultValue?.modules || ["Module 1"],
+        modules: defaultValue?.modules || [],
         purchase_order_document: defaultValue?.purchase_order_document || '',
         purchased_date: defaultValue?.purchased_date ? new Date(defaultValue.purchased_date) : undefined,
-        type: defaultValue?.type || CustomizationType.MODULE
+        type: defaultValue?.type || CustomizationType.MODULE,
+        invoice_document: defaultValue?.invoice_document || '',
+        title: defaultValue?.title || "",
+        reports: defaultValue?.reports || []
     }
 
 
@@ -70,26 +229,40 @@ const CustomizationForm: React.FC<ICustomationProps> = ({ clientId, handler, isL
         if (disable !== undefined) setDisableInput(disable)
     }, [disable])
 
+    useEffect(() => {
+        if (defaultValue?.product_id) {
+            const product = productsList?.data.find((product) => product._id === defaultValue.product_id)
+            if (product) {
+                setAmcRate({ percentage: product.amc_rate.percentage, amount: product.amc_rate.amount, total_amount: product.total_cost })
+                setSelectedProduct(product)
+            }
+        }
+    }, [defaultValue?.product_id, productsList])
+
     const customizationModulesFields = form.watch("modules")
-
-    const appendCustomizationModule = () => {
-        form.setValue("modules", [...customizationModulesFields, ""])
+    const reportFields = form.watch("reports") || []
+    const appendCustomizationModule = (value: string, type: "module" | "report" = "module") => {
+        if (type === "module") form.setValue("modules", [...customizationModulesFields, value])
+        else form.setValue("reports", [...(reportFields || []), value])
     }
 
-    const removeCustomizationModule = (index: number) => {
-        form.setValue("modules", customizationModulesFields.filter((_, i) => i !== index))
+    const removeCustomizationModule = (index: number, type: "module" | "report" = "module") => {
+        if (type === "module")
+            form.setValue("modules", customizationModulesFields.filter((_, i) => i !== index))
+        else
+            form.setValue("reports", (reportFields || []).filter((_, i) => i !== index))
     }
 
-    const getSignedUrl = async (file: File) => {
+    const getSignedUrl = async (file: File, name: "invoice_document" | "purchase_order_document") => {
         const filename = await uploadFile(file);
-        form.setValue('purchase_order_document', filename as string)
+        form.setValue(name, filename as string)
     }
 
     const renderFormField = (name: `modules.${number}` | keyof ICustomizationInputs, label: string | null, placeholder: string, type: HTMLInputTypeAttribute = "text") => {
         const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, field: any) => {
             const file = e.target.files?.[0];
-            if (file) {
-                await getSignedUrl(file);
+            if (file && (name === 'invoice_document' || name === 'purchase_order_document')) {
+                await getSignedUrl(file, name);
             }
         };
 
@@ -103,12 +276,17 @@ const CustomizationForm: React.FC<ICustomationProps> = ({ clientId, handler, isL
             </div>
         );
 
+        const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+            form.setValue(name, e.target.value)
+            if (name === 'cost') recalculateAMCAmount()
+        }
+
         return (
             <FormField
                 control={form.control}
                 name={name as any}
                 render={({ field }) => (
-                    <FormItem className='w-full'>
+                    <FormItem className='w-full mb-4 md:mb-0'>
                         {label && (
                             <FormLabel className='text-gray-500 relative block w-fit'>
                                 {label}
@@ -131,7 +309,7 @@ const CustomizationForm: React.FC<ICustomationProps> = ({ clientId, handler, isL
                                 <Input
                                     type={type}
                                     {...field}
-                                    onChange={type === 'file' ? (e) => handleFileChange(e, field) : field.onChange}
+                                    onChange={type === 'file' ? (e) => handleFileChange(e, field) : onChange}
                                     value={(type === 'number' && field.value === 0) ? '' : (type === 'file' ? undefined : field.value as string)}
                                     disabled={disableInput}
                                     className='bg-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
@@ -146,12 +324,42 @@ const CustomizationForm: React.FC<ICustomationProps> = ({ clientId, handler, isL
         );
     }
 
-    const onSubmit = async (data: ICustomizationInputs) => {
-        if (!data.product_id || !data.cost || !data.purchase_order_document || !data.purchased_date || !data.modules.length) {
+    const addCustomModuleInProduct = async (type: "module" | "report" = "module") => {
+        if (!selectedProduct || !addNewModule.add || !addNewModule.value) return
+        const key = type === "report" ? "reports" : "modules"
+        try {
+            const newModule = { key: addNewModule.value.toString().replaceAll(" ", "-"), name: addNewModule.value, description: addNewModule.description }
+            const product = await updateProductByIdApi({
+                id: selectedProduct?._id,
+                data: {
+                    [key]: [...selectedProduct[key], newModule]
+                }
+            }).unwrap()
+            setSelectedProduct(product.data)
+            appendCustomizationModule(newModule.key, type)
+            setAddNewModule({ add: false, value: "", description: "" })
+        } catch (error) {
             toast({
                 variant: 'destructive',
                 title: 'Error',
-                description: 'Please fill all the required fields'
+                description: 'Error adding module'
+            })
+        }
+    }
+
+    const onSubmit = async (data: ICustomizationInputs) => {
+        const missingFields = [];
+        if (!data.product_id) missingFields.push('Product');
+        if (!data.cost) missingFields.push('Cost');
+        if (!data.invoice_document) missingFields.push('Invoice Document');
+        if (!data.purchased_date) missingFields.push('Purchased Date');
+        if (!data.modules.length) missingFields.push('Modules');
+
+        if (missingFields.length > 0) {
+            toast({
+                variant: 'destructive',
+                title: 'Required Fields Missing',
+                description: `Please fill the following fields: ${missingFields.join(', ')}`
             })
             return
         }
@@ -160,7 +368,7 @@ const CustomizationForm: React.FC<ICustomationProps> = ({ clientId, handler, isL
         if (!product) {
             throw new Error('Product not found')
         }
-        handler(data, product.order_id)
+        await handler({ ...data, cost: Number(data.cost) }, product.order_id)
     }
 
     const selectPlaceHolder = (name: "product_id" | "type", value: string) => {
@@ -174,23 +382,123 @@ const CustomizationForm: React.FC<ICustomationProps> = ({ clientId, handler, isL
         return placeholders[name]?.() || "Select a Product"
     }
 
+    const recalculateAMCAmount = () => {
+        const amcPercentage = amcRate.percentage
+        const amcTotalAmount = amcRate.total_amount
+        const customizationAmount = form.getValues('cost') || 0
+
+        const newAmcTotalAmount = ((Number(customizationAmount) + amcTotalAmount) * amcPercentage) / 100
+        setAmcRate(prev => ({ ...prev, amount: newAmcTotalAmount }))
+    }
+
+    const getSelectedCustomizationModules = () => {
+        return selectedProduct?.modules.filter(mod => customizationModulesFields.includes(mod.key))
+    }
+
+    const getSelectedCustomizationReports = () => {
+        return selectedProduct?.reports.filter(mod => reportFields.includes(mod.key))
+    }
+
+    const renderDynamicFields = (type: string) => {
+
+        switch (type) {
+            case CustomizationType.MODULE:
+                return (
+                    <>
+                        <ModulesCombobox
+                            data={selectedProduct?.modules || []}
+                            customizationModulesFields={customizationModulesFields}
+                            disableInput={disableInput}
+                            appendCustomizationModule={appendCustomizationModule}
+                            removeCustomizationModule={removeCustomizationModule}
+                            setAddNewModule={setAddNewModule}
+                        />
+                        <div className="mt-4 md:w-1/2">
+                            {getSelectedCustomizationModules()?.map((mod, index) => (
+                                <div className="mb-4 gap-2 relative" key={mod.key}>
+                                    <Input disabled value={mod.name} />
+                                    <Textarea disabled value={mod.description} className='resize-none mt-2' />
+                                    <Button type='button' variant='destructive' disabled={disableInput} className='!p-3 absolute -top-7 -right-4' onClick={() => removeCustomizationModule(index, "module")}>
+                                        <X />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                )
+            case CustomizationType.REPORT:
+                return (
+                    <>
+                        <ModulesCombobox
+                            data={selectedProduct?.reports || []}
+                            customizationModulesFields={reportFields}
+                            disableInput={disableInput}
+                            appendCustomizationModule={appendCustomizationModule}
+                            removeCustomizationModule={removeCustomizationModule}
+                            setAddNewModule={setAddNewModule}
+                            type="report"
+                        />
+
+                        <div className="mt-4 md:w-1/2">
+                            {getSelectedCustomizationReports()?.map((mod, index) => (
+                                <div className=" items-center mb-4 gap-2" key={mod.key}>
+                                    <div className="mb-4 gap-2 relative" key={mod.key}>
+                                        <Input disabled value={mod.name} />
+                                        <Textarea disabled value={mod.description} className='resize-none mt-2' />
+                                        <Button type='button' variant='destructive' disabled={disableInput} className='!p-3 absolute -top-7 -right-4' onClick={() => removeCustomizationModule(index, "report")}>
+                                            <X />
+                                        </Button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                )
+            default:
+                return (
+                    <>
+                        <ModulesCombobox
+                            data={selectedProduct?.modules || []}
+                            customizationModulesFields={customizationModulesFields}
+                            disableInput={disableInput}
+                            appendCustomizationModule={appendCustomizationModule}
+                            removeCustomizationModule={removeCustomizationModule}
+                            setAddNewModule={setAddNewModule}
+                        />
+                        <div className="mt-4 md:w-1/2">
+                            {getSelectedCustomizationModules()?.map((mod, index) => (
+                                <div className="mb-4 gap-2 relative" key={mod.key}>
+                                    <Input disabled value={mod.name} />
+                                    <Textarea disabled value={mod.description} className='resize-none mt-2' />
+                                    <Button type='button' variant='destructive' disabled={disableInput} className='!p-3 absolute -top-7 -right-4' onClick={() => removeCustomizationModule(index)}>
+                                        <X />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                )
+
+        }
+    }
+
     return (
         <div className="bg-custom-gray bg-opacity-75 rounded p-4">
             <div className="flex items-center justify-between">
                 <Typography variant='h1'>{label}</Typography>
                 {defaultValue?._id && (
                     <div className="mb-2 flex justify-end">
-                        <Button className={`w-36 justify-between ${!disableInput ? "bg-destructive hover:bg-destructive" : ""}`}
+                        <Button className={`md:w-36 justify-between ${!disableInput ? "bg-destructive hover:bg-destructive" : ""}`}
                             onClick={() => setDisableInput(prev => !prev)}>
                             {disableInput ? (
                                 <>
                                     <Pencil />
-                                    <span>Start Editing</span>
+                                    <span className='hidden md:block'>Start Editing</span>
                                 </>
                             ) : (
                                 <>
                                     <CircleX />
-                                    <span>Close Editing</span>
+                                    <span className='hidden md:block'>Close Editing</span>
                                 </>
                             )}
                         </Button>
@@ -199,15 +507,23 @@ const CustomizationForm: React.FC<ICustomationProps> = ({ clientId, handler, isL
             </div>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 mt-5">
-                    <div className="flex items-center gap-4 w-full">
+                    <div className="grid md:grid-cols-2 gap-6">
+                        {renderFormField('title', 'Title', 'Enter Title', 'text')}
                         <FormField
                             control={form.control}
                             name="product_id"
                             render={({ field }) => (
-                                <FormItem className='w-full'>
+                                <FormItem className='w-full mb-4 md:mb-0'>
                                     <FormLabel className='text-gray-500'>Product ID</FormLabel>
                                     <FormControl>
-                                        <Select onValueChange={field.onChange}>
+                                        <Select onValueChange={(value) => {
+                                            field.onChange(value)
+                                            const product = productsList?.data.find((product) => product._id === value)
+                                            if (product) {
+                                                setAmcRate({ percentage: product.amc_rate.percentage, amount: product.amc_rate.amount, total_amount: product.total_cost })
+                                                setSelectedProduct(product)
+                                            }
+                                        }}>
                                             <SelectTrigger className="w-full bg-white" disabled={disableInput}>
                                                 <SelectValue placeholder={selectPlaceHolder('product_id', field.value)} />
                                             </SelectTrigger>
@@ -232,20 +548,18 @@ const CustomizationForm: React.FC<ICustomationProps> = ({ clientId, handler, isL
                                 <FormItem className='w-full'>
                                     <FormLabel className='text-gray-500'>Cost</FormLabel>
                                     <FormControl>
-                                        {renderFormField('cost', null, 'Enter Price')}
+                                        {renderFormField('cost', null, 'Enter Price', "number")}
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
                         />
-                    </div>
 
-                    <div className="flex items-end gap-4 w-full">
                         <FormField
                             control={form.control}
                             name="type"
                             render={({ field }) => (
-                                <FormItem className='w-full'>
+                                <FormItem className='w-full mb-4 md:mb-0'>
                                     <FormLabel className='text-gray-500'>Type</FormLabel>
                                     <FormControl>
                                         <Select onValueChange={field.onChange}>
@@ -268,54 +582,63 @@ const CustomizationForm: React.FC<ICustomationProps> = ({ clientId, handler, isL
                                 </FormItem>
                             )}
                         />
-                        {renderFormField('purchase_order_document', 'Purchase Order Document', 'Upload Purchase Order Document', 'file')}
-                    </div>
-                    <div className="md:w-1/2 ">
 
-                        <FormField
-                            control={form.control}
-                            name="purchased_date"
-                            render={({ field }) => (
-                                <FormItem className='w-full'>
-                                    <FormLabel className='text-gray-500'>Purchased Date</FormLabel>
-                                    <FormControl>
-                                        <DatePicker date={field.value} disabled={disableInput} onDateChange={field.onChange} placeholder='Pick end date' />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    </div>
+                        <div className="md:flex items-end gap-4 w-full">
+                            {renderFormField('purchase_order_document', 'Purchase Order Document', 'Upload Purchase Order Document', 'file')}
+                            {renderFormField('invoice_document', 'Invoice Document', 'Upload Invoice Document', 'file')}
+                        </div>
 
-                    <div className="">
-                        <FormLabel className='text-gray-500' >Modules</FormLabel>
-                        {customizationModulesFields.map((_, index) => (
-                            <div key={index} className="flex items-end relative gap-4 w-full mb-4">
-                                {renderFormField(`modules.${index}`, null, "Module Name")}
-                                {
-                                    customizationModulesFields.length > 1 && (
-                                        <Button variant='destructive' onClick={() => removeCustomizationModule(index)} className='rounded-full w-8 h-8 ' disabled={disableInput}>
-                                            <X />
-                                        </Button>
-                                    )
-                                }
-                            </div>
-                        ))}
-                        <div className="flex justify-center mt-4">
-                            <Button
-                                type='button'
-                                onClick={() => appendCustomizationModule()}
-                                className="flex items-center justify-center gap-2 py-5 md:w-72 bg-[#E6E6E6] text-black hover:bg-black hover:text-white group"
-                                disabled={disableInput}
-                            >
-                                <CirclePlus className='!w-6 !h-6' />
-                                <Typography variant='p' className='text-black group-hover:text-white'>Add more module</Typography>
-                            </Button>
+                        <div className="w-full">
+                            <FormField
+                                control={form.control}
+                                name="purchased_date"
+                                render={({ field }) => (
+                                    <FormItem className='w-full'>
+                                        <FormLabel className='text-gray-500'>Purchased Date</FormLabel>
+                                        <FormControl>
+                                            <DatePicker date={field.value} disabled={disableInput} onDateChange={field.onChange} placeholder='Pick end date' />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+                        <div className="w-full md:flex items-center gap-4">
+                            {renderDisabledInput("AMC Percentage", amcRate.percentage, "number")}
+                            {renderDisabledInput("AMC Amount", amcRate.amount, "number")}
                         </div>
                     </div>
 
+
+
+                    <div className="gap-5">
+                        {renderDynamicFields(form.getValues("type") as string || CustomizationType.MODULE)}
+
+                        <Dialog open={addNewModule.add} onOpenChange={(val) => !val && setAddNewModule({ add: false, value: "", description: "" })}>
+                            <DialogContent>
+                                <DialogTitle>Add New Module</DialogTitle>
+                                <DialogDescription className='!mt-0'>This module will automatically will be added in the products</DialogDescription>
+                                {
+                                    addNewModule.add && (
+                                        <div className="">
+                                            <Input placeholder='Title' onChange={(e) => setAddNewModule(prev => ({ ...prev, value: e.target.value }))} />
+                                            <Textarea placeholder='Description' className='mt-3 resize-none' rows={4} onChange={(e) => setAddNewModule(prev => ({ ...prev, description: e.target.value }))} />
+
+                                            <DialogFooter className='mt-4'>
+                                                <Button variant='default' className='!p-3 ' type='button' onClick={() => addCustomModuleInProduct(addNewModule.type)}>
+                                                    Create
+                                                </Button>
+                                            </DialogFooter>
+
+                                        </div>
+                                    )
+                                }
+                            </DialogContent>
+                        </Dialog>
+                    </div>
+
                     <div className="flex justify-end">
-                        <Button type="submit" className='w-48' disabled={isLoading || !form.formState.isDirty || disableInput} loading={{ isLoading, loader: "tailspin" }} >
+                        <Button type="submit" className='md:w-48 w-full py-5 md:py-2' disabled={isLoading || disableInput} loading={{ isLoading, loader: "tailspin" }} >
                             <CircleCheck />
                             <span className='text-white'>Save Customization</span>
                         </Button>

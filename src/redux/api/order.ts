@@ -9,6 +9,7 @@ import { IAdditionalServiceInputs } from "@/components/Purchase/Form/AdditionalS
 import { ICustomizationInputs } from "@/components/Purchase/Form/CustomizationForm";
 import { IProduct } from "@/types/product";
 import { IAmcInputs } from "@/components/AMC/AMCDetail";
+import { AMC_FILTER } from "@/components/AMC/AMC";
 
 const orderUrl = `${process.env.NEXT_PUBLIC_API_URL}/orders`;
 
@@ -35,9 +36,12 @@ export interface ICustomizationObject {
   product_id: string;
   cost: number;
   modules: string[];
+  reports: string[];
   purchase_order_document: string;
   purchased_date: string;
+  invoice_document: string;
   type: CustomizationType;
+  title?: string;
   deleted: boolean;
   createdAt: string;
   updatedAt: string;
@@ -53,6 +57,7 @@ export interface IAdditionalServiceObject {
   };
   cost: number;
   purchase_order_document?: string;
+  invoice_document?: string;
   service_document?: string;
   order_id: string;
 }
@@ -74,9 +79,15 @@ export interface IOrderObject {
   agreement_date: {
     start: Date;
     end: Date;
-  };
+  }[];
   agreement_document: string;
   purchase_order_document: string;
+  invoice_document: string;
+  base_cost_seperation?: {
+    product_id: string;
+    amount: number;
+    percentage: number;
+  }[];
   other_document: string;
   amc_start_date: string;
   purchased_date: Date;
@@ -85,7 +96,9 @@ export interface IOrderObject {
   updatedAt: string;
   license: ILicenceObject;
   customization: ICustomizationObject;
-  training_implementation_cost: number;
+  customizations?: ICustomizationObject[];
+  licenses?: ILicenceObject[];
+  additional_services?: IAdditionalServiceObject[];
   _id: string;
 }
 
@@ -96,6 +109,18 @@ export type TransformedAMCObject = Omit<IAMCObject, "order_id"> & {
   _id: string;
 };
 
+export enum PAYMENT_STATUS_ENUM {
+  PAID = "paid",
+  PENDING = "pending",
+  PARTIAL = "partial",
+}
+
+export interface IAMCPayment {
+  from_date: Date;
+  to_date: Date;
+  status: PAYMENT_STATUS_ENUM;
+}
+
 export interface IAMCObject {
   order_id: string;
   client: IClientDataObject;
@@ -104,9 +129,11 @@ export interface IAMCObject {
   amc_frequency_in_months: IAMCFrequency;
   purchase_order_document?: string;
   invoice_document?: string;
+  last_payment?: IAMCPayment;
   amount: number;
   start_date: Date;
   products: IProduct[];
+  payments?: IAMCPayment[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -248,7 +275,7 @@ export const orderApi = createApi({
         method: HTTP_REQUEST.PATCH,
         body: data,
       }),
-      invalidatesTags: ["AMC_DATA"],
+      invalidatesTags: ["AMC_DATA", "AMC_LIST"],
     }),
     getLicenceById: builder.query<IResponse<ILicenceObject>, string>({
       query: (licenceId) => `/license/${licenceId}`,
@@ -304,9 +331,10 @@ export const orderApi = createApi({
     }),
     getAllAMC: builder.query<
       IResponse<TransformedAMCObject[]>,
-      { page?: number }
+      { page?: number; limit?: number; filter?: AMC_FILTER }
     >({
-      query: (body) => `/all-amc?page=${body.page || 1}&limit=${10}`,
+      query: (body) =>
+        `/all-amc?page=${body.page || 1}&limit=${10}&filter=${body.filter}`,
       providesTags: ["AMC_LIST"],
     }),
   }),

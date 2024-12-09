@@ -4,13 +4,18 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { IResponse } from "./auth";
 import { RootState } from "../store";
 import { IProduct } from "@/types/product";
+import { IOrderObject } from "./order";
 
 const authUrl = `${process.env.NEXT_PUBLIC_API_URL}/clients`;
 
-export type IClientDataObject = ClientDetailsInputs & {
+export type IClientDataObject = Omit<ClientDetailsInputs, "parent_company"> & {
   _id: string;
   createdAt: string;
   orders: string[];
+  parent_company: {
+    id: string;
+    name: string;
+  };
 };
 
 type IUpdateClientRequest = ClientDetailsInputs & { id: string };
@@ -30,7 +35,7 @@ export const clientApi = createApi({
       return headers;
     },
   }),
-  tagTypes: ["CLIENT_DETAIL", "CLIENT_LIST"],
+  tagTypes: ["CLIENT_DETAIL", "CLIENT_LIST", "PARENT_COMPANY_LIST"],
   endpoints: (builder) => ({
     getClientById: builder.query<IResponse<IClientDataObject>, string>({
       query: (id) => `/${id}`,
@@ -58,13 +63,40 @@ export const clientApi = createApi({
         method: HTTP_REQUEST.PATCH,
         body,
       }),
-      invalidatesTags: ["CLIENT_DETAIL", "CLIENT_LIST"],
+      invalidatesTags: ["CLIENT_DETAIL", "CLIENT_LIST", "PARENT_COMPANY_LIST"],
     }),
     getPurchasedProductsByClient: builder.query<
-      IResponse<(IProduct & { order_id: string })[]>,
+      IResponse<
+        (IProduct & {
+          order_id: string;
+          amc_rate: {
+            percentage: number;
+            amount: number;
+          };
+          total_cost: number;
+        })[]
+      >,
       string
     >({
       query: (clientId) => `/${clientId}/products`,
+    }),
+    getAllParentCompanies: builder.query<
+      IResponse<{ _id: string; name: string }[]>,
+      void
+    >({
+      query: (id) => `/parent-companies`,
+      providesTags: ["PARENT_COMPANY_LIST"],
+    }),
+    getProfitFromClient: builder.query<
+      IResponse<{
+        total_profit: number;
+        upcoming_amc_profit: number;
+        total_amc_collection: number;
+        orders: (Omit<IOrderObject, "products"> & { products: IProduct[] })[];
+      }>,
+      string
+    >({
+      query: (clientId) => `/${clientId}/profit`,
     }),
   }),
 });
@@ -75,4 +107,6 @@ export const {
   useUpdateClientMutation,
   useGetClientsQuery,
   useGetPurchasedProductsByClientQuery,
+  useGetAllParentCompaniesQuery,
+  useGetProfitFromClientQuery,
 } = clientApi;

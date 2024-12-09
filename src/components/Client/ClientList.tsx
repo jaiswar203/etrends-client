@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/table'
 import { GetAllClientResponse } from '@/redux/api/client'
 import { useRouter } from 'next/navigation'
+import { useAppSelector } from '@/redux/hook'
 
 interface IProps {
     data: GetAllClientResponse[]
@@ -83,6 +84,7 @@ const ClientList: React.FC<IProps> = ({ data: clientData }) => {
         []
     )
     const router = useRouter()
+    const products = useAppSelector((state) => state.user.products)
 
     // Transform the data into the shape we need
     const data = useMemo(() =>
@@ -98,6 +100,20 @@ const ClientList: React.FC<IProps> = ({ data: clientData }) => {
     const [columnVisibility, setColumnVisibility] =
         useState<VisibilityState>({})
     const [rowSelection, setRowSelection] = useState({})
+
+    const uniqueClients = useMemo(
+        () => Array.from(new Set(data.map((d) => d.name))),
+        [data]
+    )
+    const uniqueProducts = useMemo(
+        () => [...new Set(products.map((product) => product.short_name))],
+        [products]
+    )
+
+    const uniqueIndustries = useMemo(
+        () => Array.from(new Set(data.map((d) => d.industry))),
+        [data]
+    )
 
     const table = useReactTable({
         data,
@@ -121,7 +137,7 @@ const ClientList: React.FC<IProps> = ({ data: clientData }) => {
 
     return (
         <div className="w-full">
-            <div className="flex items-center py-4">
+            <div className="flex items-center justify-between py-4">
                 <Input
                     placeholder="Filter companies..."
                     value={(table.getColumn('name')?.getFilterValue() as string) ?? ''}
@@ -131,32 +147,83 @@ const ClientList: React.FC<IProps> = ({ data: clientData }) => {
                     }}
                     className="max-w-sm"
                 />
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="ml-auto">
-                            Columns <ChevronDown className="ml-2 h-4 w-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        {table
-                            .getAllColumns()
-                            .filter((column) => column.getCanHide())
-                            .map((column) => {
-                                return (
-                                    <DropdownMenuCheckboxItem
-                                        key={column.id}
-                                        className="capitalize"
-                                        checked={column.getIsVisible()}
-                                        onCheckedChange={(value) =>
-                                            column.toggleVisibility(!!value)
-                                        }
-                                    >
-                                        {column.id}
-                                    </DropdownMenuCheckboxItem>
-                                )
-                            })}
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                <div className="flex item-center gap-4">
+                    {/* Clients Dropdown */}
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="ml-auto">
+                                {(table.getColumn('name')?.getFilterValue() as string) ?? 'Client'}{' '}
+                                <ChevronDown className="ml-2 h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            {uniqueClients.map((client) => (
+                                <DropdownMenuCheckboxItem
+                                    key={client}
+                                    className="capitalize"
+                                    checked={
+                                        table.getColumn('name')?.getFilterValue() === client
+                                    }
+                                    onCheckedChange={(value) => {
+                                        table
+                                            .getColumn('name')
+                                            ?.setFilterValue(value ? client : '')
+                                    }}
+                                >
+                                    {client}
+                                </DropdownMenuCheckboxItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    {/* Products Dropdown */}
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="ml-auto">
+                                {(table.getColumn('products')?.getFilterValue() as string) ?? 'Products'}{' '}
+                                <ChevronDown className="ml-2 h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            {uniqueProducts.map((product) => (
+                                <DropdownMenuCheckboxItem
+                                    key={product}
+                                    className="capitalize"
+                                    checked={table.getColumn('products')?.getFilterValue() === product}
+                                    onCheckedChange={(value) => {
+                                        table.getColumn('products')?.setFilterValue(value ? product : '')
+                                    }}
+                                >
+                                    {product}
+                                </DropdownMenuCheckboxItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    {/* Industry Dropdown */}
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="ml-auto capitalize">
+                                {(table.getColumn('industry')?.getFilterValue() as string) ?? 'Industry'}{' '}
+                                <ChevronDown className="ml-2 h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            {uniqueIndustries.map((industry) => (
+                                <DropdownMenuCheckboxItem
+                                    key={industry}
+                                    className="capitalize"
+                                    checked={table.getColumn('industry')?.getFilterValue() === industry}
+                                    onCheckedChange={(value) => {
+                                        table.getColumn('industry')?.setFilterValue(value ? industry : '')
+                                    }}
+                                >
+                                    {industry}
+                                </DropdownMenuCheckboxItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
             </div>
             <div className="rounded-md border">
                 <Table>

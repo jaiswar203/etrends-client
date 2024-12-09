@@ -7,7 +7,11 @@ interface IPOC {
 }
 
 export type ClientDetailsInputs = {
-  parent_company?: string;
+  parent_company?: {
+    id: string;
+    name: string;
+    new?:boolean
+  };
   name: string;
   pan_number: string;
   gst_number: string;

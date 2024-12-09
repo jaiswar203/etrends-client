@@ -12,7 +12,7 @@ interface IProps {
 }
 
 const NewOrder: React.FC<IProps> = ({ clientId }) => {
-  const [createOrderApi] = useCreateOrderMutation()
+  const [createOrderApi, { isLoading }] = useCreateOrderMutation()
   const router = useRouter()
 
   const createNewOrderHandler = async (data: OrderDetailInputs) => {
@@ -37,7 +37,7 @@ const NewOrder: React.FC<IProps> = ({ clientId }) => {
       <Typography variant='h1' className='text-3xl'>Create New Order</Typography>
 
       <br />
-      <OrderDetail removeAccordion handler={createNewOrderHandler} />
+      <OrderDetail isLoading={isLoading} removeAccordion handler={createNewOrderHandler} />
     </div>
   )
 }

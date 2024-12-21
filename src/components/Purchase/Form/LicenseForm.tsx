@@ -156,7 +156,7 @@ const LicenseForm: React.FC<ILicenseProps> = ({ clientId, handler, isLoading, la
 
         const missingFields = Object.entries(requiredFields)
             .filter(([key]) => !data[key as keyof typeof data])
-            .map(([_key, label]) => label);
+            .map(([, label]) => label);
 
         if (missingFields.length > 0) {
             toast({

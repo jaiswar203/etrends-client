@@ -235,8 +235,8 @@ const ClientDetail: React.FC<IProps> = ({ handler, disable = false, defaultValue
                                                 {
                                                     Object.entries(AMC_FREQUENCY)
                                                         .filter(([key]) => isNaN(Number(key)))
-                                                        .map(([key, value]) => (
-                                                            <SelectItem value={value.toString()} key={value}>
+                                                        .map(([_key, value]) => (
+                                                            <SelectItem value={value.toString()} key={_key}>
                                                                 {value} {value === 1 ? 'month' : 'months'}
                                                             </SelectItem>
                                                         ))

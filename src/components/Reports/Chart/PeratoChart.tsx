@@ -1,7 +1,7 @@
 "use client"
 
-import { Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ComposedChart, ResponsiveContainer, Label } from "recharts"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader } from "@/components/ui/card"
+import { Bar, Line, XAxis, YAxis, CartesianGrid, Legend, ComposedChart, ResponsiveContainer, Label } from "recharts"
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip } from "@/components/ui/chart"
 import Typography from "@/components/ui/Typography"
 import { useRef, useState } from "react"

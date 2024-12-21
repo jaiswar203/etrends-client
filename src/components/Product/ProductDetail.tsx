@@ -23,6 +23,7 @@ const ProductDetail: React.FC<IProps> = ({ id }) => {
             })
             router.push(`/products`)
         } catch (error) {
+            console.error(error)
             toast({
                 variant: "destructive",
                 title: "Error",

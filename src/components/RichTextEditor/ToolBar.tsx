@@ -35,11 +35,9 @@ import { TableModal } from "./table/TableModal";
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
     DialogFooter,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -57,12 +55,13 @@ const fontFamilies = [
 ];
 
 export default function ToolBar({ editor }: { editor: Editor | null }) {
-    if (!editor) return null;
     const [showTableOperations, setShowTableOperations] = useState(false);
     const [showTableModal, setShowTableModal] = useState(false);
 
     const [dialogState, setDialogState] = useState<{ open: boolean, type: "color-picker" | null }>({ open: false, type: null })
     const [values, setValues] = useState({ textColor: "" })
+
+    if (!editor) return null;
 
     function uploadImage(editor: Editor) {
         const input = document.createElement("input");

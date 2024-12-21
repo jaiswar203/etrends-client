@@ -30,7 +30,6 @@ import {
     DropdownMenuContent,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useRouter } from 'next/navigation'
 import {
     Dialog,
     DialogContent,
@@ -72,7 +71,6 @@ const columns: ColumnDef<IColumn>[] = [
 const ReminderList: React.FC<IProps> = ({ data }) => {
     const [sorting, setSorting] = useState<SortingState>([])
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
-    const router = useRouter()
     const [reminderModal, setReminderModal] = useState({ show: false, id: '' })
 
     const tableData = useMemo(() => {

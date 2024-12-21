@@ -12,7 +12,7 @@ import {
     getFilteredRowModel,
     VisibilityState,
 } from '@tanstack/react-table'
-import { ChevronDown, MoreHorizontal } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
     Table,

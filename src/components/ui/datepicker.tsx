@@ -24,7 +24,6 @@ interface DatePickerProps {
 export default function DatePicker({
     date,
     onDateChange,
-    label = "Pick a date",
     disabled,
     placeholder = "Select date"
 }: DatePickerProps) {

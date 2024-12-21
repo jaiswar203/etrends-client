@@ -115,7 +115,7 @@ const AmcForm: React.FC<{ orderId: string, defaultValue?: IDefaultValues }> = ({
     }
 
     const renderInput = (name: Exclude<keyof IAmcInputs, 'start_date'>, label: string, placeholder: string, type: HTMLInputTypeAttribute = "text") => {
-        const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, field: any) => {
+        const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
             const file = e.target.files?.[0];
             if (file) {
                 await getSignedUrl(file, name);
@@ -160,7 +160,7 @@ const AmcForm: React.FC<{ orderId: string, defaultValue?: IDefaultValues }> = ({
                                     type={type}
                                     {...field}
                                     disabled={!enableEdit}
-                                    onChange={type === 'file' ? (e) => handleFileChange(e, field) : field.onChange}
+                                    onChange={type === 'file' ? (e) => handleFileChange(e) : field.onChange}
                                     value={type === 'file' ? undefined : typeof field.value === 'string' || typeof field.value === 'number' ? field.value : undefined}
                                     className='bg-white'
                                     placeholder={placeholder}
@@ -274,7 +274,7 @@ const AmcForm: React.FC<{ orderId: string, defaultValue?: IDefaultValues }> = ({
                                                                 Object.entries(PAYMENT_STATUS_ENUM)
                                                                     .filter(([key]) => isNaN(Number(key)))
                                                                     .map(([key, value]) => (
-                                                                        <SelectItem value={value} key={value} className='capitalize'>
+                                                                        <SelectItem value={value} key={key} className='capitalize'>
                                                                             {value === PAYMENT_STATUS_ENUM.PAID ? (
                                                                                 <div className="flex items-center">
                                                                                     <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>

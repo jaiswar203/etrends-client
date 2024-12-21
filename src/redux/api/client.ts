@@ -102,7 +102,7 @@ export const clientApi = createApi({
       IResponse<{ _id: string; name: string }[]>,
       void
     >({
-      query: (id) => `/parent-companies`,
+      query: () => `/parent-companies`,
       providesTags: ["PARENT_COMPANY_LIST"],
     }),
     getProfitFromClient: builder.query<IResponse<IClientProfit>, string>({

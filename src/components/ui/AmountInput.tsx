@@ -18,7 +18,7 @@ const OPTIONS = [
 ] as const
 
 const AmountInput = React.forwardRef<HTMLInputElement, AmountInputProps>(
-    ({ className, isPercentage = true, onModeChange, onValueChange, defaultInputValue, disabled, ...props }, ref) => {
+    ({ className, onModeChange, onValueChange, defaultInputValue, disabled, ...props }, ref) => {
         const [selectedOption, setSelectedOption] = React.useState<typeof OPTIONS[number]>(OPTIONS[0])
         const [error, setError] = React.useState<string | null>(null)
 
@@ -87,5 +87,7 @@ const AmountInput = React.forwardRef<HTMLInputElement, AmountInputProps>(
         )
     }
 )
+
+AmountInput.displayName = "AmountInput"
 
 export { AmountInput }

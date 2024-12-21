@@ -80,7 +80,7 @@ const LicenseForm: React.FC<ILicenseProps> = ({ clientId, handler, isLoading, la
     }
 
     const renderFormField = (name: Exclude<keyof ILicenseInputs, 'purchase_date'>, label: string, placeholder: string, type: HTMLInputTypeAttribute = "number") => {
-        const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, field: any) => {
+        const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
             const file = e.target.files?.[0];
             if (file) {
                 await getSignedUrl(file, name);
@@ -130,7 +130,7 @@ const LicenseForm: React.FC<ILicenseProps> = ({ clientId, handler, isLoading, la
                                 <Input
                                     type={type}
                                     {...field}
-                                    onChange={type === 'file' ? (e) => handleFileChange(e, field) : onChange}
+                                    onChange={type === 'file' ? (e) => handleFileChange(e) : onChange}
                                     value={(type === 'number' && field.value === 0) ? '' : (type === 'file' ? undefined : field.value as string)}
                                     disabled={disableInput}
                                     className='bg-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
@@ -156,7 +156,7 @@ const LicenseForm: React.FC<ILicenseProps> = ({ clientId, handler, isLoading, la
 
         const missingFields = Object.entries(requiredFields)
             .filter(([key]) => !data[key as keyof typeof data])
-            .map(([_, label]) => label);
+            .map(([_key, label]) => label);
 
         if (missingFields.length > 0) {
             toast({

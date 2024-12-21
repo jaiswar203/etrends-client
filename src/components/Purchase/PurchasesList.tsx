@@ -12,15 +12,12 @@ import {
     getFilteredRowModel,
     VisibilityState,
 } from '@tanstack/react-table'
-import { ChevronDown, MoreHorizontal } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
     DropdownMenu,
     DropdownMenuCheckboxItem,
     DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -87,7 +84,7 @@ interface IProps {
 
 }
 
-const PurchasesList: React.FC<IProps> = ({ data, pagination }) => {
+const PurchasesList: React.FC<IProps> = ({ data }) => {
     const [sorting, setSorting] = useState<SortingState>([])
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(
         []

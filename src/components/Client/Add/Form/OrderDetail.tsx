@@ -106,7 +106,7 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
         }
     }, [defaultValue])
 
-    let defaultValues = {
+    const defaultValues = {
         products: [],
         base_cost: 0,
         amc_rate: {
@@ -379,6 +379,7 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                 description: `The file ${file.name} has been uploaded successfully.`,
             })
         } catch (error) {
+            console.log(error)
             toast({
                 variant: "destructive",
                 title: "File Upload Failed",
@@ -391,8 +392,7 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
         name: RenderFormFieldNameType,
         label: string | null,
         placeholder: string,
-        type: string = "text",
-        optional: boolean = false
+        type: string = "text"
     ) => {
         const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: any) => {
             const value = parseFloat(e.target.value) || 0;
@@ -639,8 +639,6 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
         }
     }
 
-    if (!products) return null
-
     const getSelectedProducts = useCallback(() => {
         const selectedProducts = form.watch("products") || [];
         return products.filter(product => selectedProducts.includes(product._id))
@@ -743,6 +741,7 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
             appendCustomizationModule(newModule.key, type)
             setAddNewModule({ add: false, value: "", description: "" })
         } catch (error) {
+            console.log(error)
             toast({
                 variant: 'destructive',
                 title: 'Error',
@@ -750,6 +749,8 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
             })
         }
     }
+
+    if (!products) return null
 
     const finalJSX = (
         <div className="mt-1 p-2">
@@ -1191,7 +1192,7 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                                     {renderFormField("purchase_order_document", "PO Document", "", "file")}
                                 </div>
                                 <div className="md:flex items-end gap-4 w-full mt-6">
-                                    {renderFormField("invoice_document", "Invoice Document", "", "file", false)}
+                                    {renderFormField("invoice_document", "Invoice Document", "", "file")}
                                     {renderFormField("other_document.url", "Other Document", "", "file")}
                                 </div>
                                 <div className=" mt-6">

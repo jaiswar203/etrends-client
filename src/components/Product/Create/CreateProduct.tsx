@@ -92,6 +92,7 @@ const CreateProduct: React.FC<IProps> = ({ handler, disable = false, defaultValu
             await handler(data)
             setIsLoading(false)
         } catch (error) {
+            console.error(error)
             setIsLoading(false)
         }
     }

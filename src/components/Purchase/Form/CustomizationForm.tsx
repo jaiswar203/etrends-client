@@ -4,9 +4,9 @@ import { Input } from '@/components/ui/input'
 import Typography from '@/components/ui/Typography'
 import { useGetPurchasedProductsByClientQuery } from '@/redux/api/client'
 import { CustomizationDetails, CustomizationType } from '@/types/order'
-import { Check, ChevronsUpDown, CircleCheck, CirclePlus, CircleX, Eye, Pencil, Plus, X } from 'lucide-react'
+import { ChevronsUpDown, CircleCheck, CirclePlus, CircleX, Eye, Pencil, Plus, X } from 'lucide-react'
 import React, { HTMLInputTypeAttribute, useEffect, useState } from 'react'
-import { useFieldArray, useForm } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import {
     Select,
     SelectContent,
@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select"
 import { useFileUpload } from '@/hooks/useFileUpload'
 import DatePicker from '@/components/ui/datepicker'
-import { toast, useToast } from '@/hooks/use-toast'
+import { useToast } from '@/hooks/use-toast'
 import { ICustomizationObject } from '@/redux/api/order'
 import Link from 'next/link'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -259,7 +259,7 @@ const CustomizationForm: React.FC<ICustomationProps> = ({ clientId, handler, isL
     }
 
     const renderFormField = (name: `modules.${number}` | keyof ICustomizationInputs, label: string | null, placeholder: string, type: HTMLInputTypeAttribute = "text") => {
-        const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, field: any) => {
+        const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
             const file = e.target.files?.[0];
             if (file && (name === 'invoice_document' || name === 'purchase_order_document')) {
                 await getSignedUrl(file, name);
@@ -309,7 +309,7 @@ const CustomizationForm: React.FC<ICustomationProps> = ({ clientId, handler, isL
                                 <Input
                                     type={type}
                                     {...field}
-                                    onChange={type === 'file' ? (e) => handleFileChange(e, field) : onChange}
+                                    onChange={type === 'file' ? (e) => handleFileChange(e) : onChange}
                                     value={(type === 'number' && field.value === 0) ? '' : (type === 'file' ? undefined : field.value as string)}
                                     disabled={disableInput}
                                     className='bg-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
@@ -339,6 +339,7 @@ const CustomizationForm: React.FC<ICustomationProps> = ({ clientId, handler, isL
             appendCustomizationModule(newModule.key, type)
             setAddNewModule({ add: false, value: "", description: "" })
         } catch (error) {
+            console.log(error)
             toast({
                 variant: 'destructive',
                 title: 'Error',
@@ -544,7 +545,7 @@ const CustomizationForm: React.FC<ICustomationProps> = ({ clientId, handler, isL
                         <FormField
                             control={form.control}
                             name="cost"
-                            render={({ field }) => (
+                            render={() => (
                                 <FormItem className='w-full'>
                                     <FormLabel className='text-gray-500'>Cost</FormLabel>
                                     <FormControl>

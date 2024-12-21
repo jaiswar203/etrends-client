@@ -25,8 +25,6 @@ import { toast } from '@/hooks/use-toast'
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
@@ -330,6 +328,7 @@ const Email: React.FC<IProps> = ({ id, emailIndex }) => {
       })
 
     } catch (error) {
+      console.error(error)
       toast({
         variant: "destructive",
         description: "Failed to send email"

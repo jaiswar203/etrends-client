@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Calendar, AlertTriangle, Mail } from 'lucide-react'
+import { Calendar, AlertTriangle } from 'lucide-react'
 import Link from "next/link"
 import { SendEmailButton } from "./ReminderAMCDetail"
 
@@ -42,7 +42,7 @@ export default function AgreementExpiryDetails({
 
         let dateObj: Date;
         if (ddMmYyyyMatch) {
-            const [_, dd, mm, yyyy] = ddMmYyyyMatch;
+            const [_key, dd, mm, yyyy] = ddMmYyyyMatch;
             // Construct a date in yyyy-mm-dd format which is ISO-compliant
             dateObj = new Date(`${yyyy}-${mm}-${dd}`);
         } else {

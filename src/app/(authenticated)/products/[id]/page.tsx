@@ -1,9 +1,10 @@
-import ProductDetail from '@/components/Product/ProductDetail'
+import AMC from '@/components/AMC/AMCDetail'
+import { use } from 'react'
 import React from 'react'
 
-const Page = async ({ params }: { params: { id: string } }) => {
-    const productId = (await params).id
-    return <ProductDetail id={productId} />
+const Page = ({ params }: { params: Promise<{ id: string }> }) => {
+    const { id: orderId } = use(params)
+    return <AMC orderId={orderId} />
 }
 
 export default Page

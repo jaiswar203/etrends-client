@@ -1,8 +1,9 @@
 import NewAdditionalService from '@/components/Purchase/New/NewAdditionalService'
 import React from 'react'
+import { use } from 'react'
 
-const Page = async ({ params }: { params: { id: string } }) => {
-    const clientId = (await params).id
+const Page = ({ params }: { params: Promise<{ id: string }> }) => {
+    const { id: clientId } = use(params)
     return <NewAdditionalService clientId={clientId} />
 }
 

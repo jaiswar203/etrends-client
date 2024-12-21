@@ -1,11 +1,10 @@
 import React from 'react'
 import PageWithQuery from './PageWithQuery'
+import { use } from 'react'
 
-const Page = async ({ params }: { params: Promise<{ id: string }> }) => {
-    const clientId = (await params).id
-
+const Page = ({ params }: { params: Promise<{ id: string }> }) => {
+    const { id: clientId } = use(params)
     return <PageWithQuery id={clientId} />
-
 }
 
 export default Page

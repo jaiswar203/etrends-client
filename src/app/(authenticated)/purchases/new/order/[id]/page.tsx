@@ -1,9 +1,9 @@
 import NewOrder from '@/components/Purchase/New/NewOrder'
-import React from 'react'
+import { use } from 'react'
 
-const Page = async ({ params }: { params: { id: string } }) => {
-  const clientId = (await params).id
-  return <NewOrder clientId={clientId} />
+const Page = ({ params }: { params: Promise<{ id: string }> }) => {
+  const { id } = use(params)
+  return <NewOrder clientId={id} />
 }
 
 export default Page

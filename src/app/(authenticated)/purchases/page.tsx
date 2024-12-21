@@ -1,8 +1,8 @@
 import Purchase from '@/components/Purchase/Purchase';
-import React from 'react';
+import React, { use } from 'react';
 
-const Page = async ({ searchParams }: { searchParams: { page: string } }) => {
-    const page = (await searchParams).page
+const Page = ({ searchParams }: { searchParams: Promise<{ page: string }> }) => {
+    const { page } = use(searchParams)
 
     return (
         <div>

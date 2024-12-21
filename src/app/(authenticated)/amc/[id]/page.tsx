@@ -1,8 +1,8 @@
 import AMC from '@/components/AMC/AMCDetail'
-import React from 'react'
+import { use } from 'react'
 
-const Page = async ({ params }: { params: { id: string } }) => {
-    const orderId = (await params).id
+const Page = ({ params }: { params: Promise<{ id: string }> }) => {
+    const { id: orderId } = use(params)
     return <AMC orderId={orderId} />
 }
 

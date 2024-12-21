@@ -42,7 +42,7 @@ export default function AgreementExpiryDetails({
 
         let dateObj: Date;
         if (ddMmYyyyMatch) {
-            const [_key, dd, mm, yyyy] = ddMmYyyyMatch;
+            const [, dd, mm, yyyy] = ddMmYyyyMatch;
             // Construct a date in yyyy-mm-dd format which is ISO-compliant
             dateObj = new Date(`${yyyy}-${mm}-${dd}`);
         } else {

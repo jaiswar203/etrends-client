@@ -33,6 +33,13 @@ import { ClientDetailsInputs } from '@/types/client'
 import { IClientDataObject, useGetAllParentCompaniesQuery } from '@/redux/api/client'
 import { decrypt } from '@/utils/crypto'
 
+enum AMC_FREQUENCY {
+    MONTHLY = 1,
+    QUARTERLY = 3,
+    HALF_YEARLY = 6,
+    YEARLY = 12
+}
+
 interface IProps {
     handler: (data: ClientDetailsInputs) => Promise<string>
     disable?: boolean
@@ -72,7 +79,8 @@ const ClientDetail: React.FC<IProps> = ({ handler, disable = false, defaultValue
             vendor_id: "",
             client_id: "",
             point_of_contacts: [{ name: '', email: '', phone: '', designation: '', opt_for_email_reminder: false }],
-            address: ""
+            address: "",
+            amc_frequency_in_months: 12
         },
         ...(defaultValue && {
             values: {
@@ -84,7 +92,8 @@ const ClientDetail: React.FC<IProps> = ({ handler, disable = false, defaultValue
                 vendor_id: decrypt(defaultValue.vendor_id as string || ""),
                 client_id: defaultValue.client_id,
                 point_of_contacts: defaultValue.point_of_contacts || [],
-                address: defaultValue.address
+                address: defaultValue.address,
+                amc_frequency_in_months: defaultValue?.amc_frequency_in_months || 12
             }
         })
     })
@@ -102,7 +111,7 @@ const ClientDetail: React.FC<IProps> = ({ handler, disable = false, defaultValue
     const onSubmit: SubmitHandler<ClientDetailsInputs> = async (data) => {
         setIsLoading(true)
         try {
-            const dbClientId = await handler(data)
+            const dbClientId = await handler({ ...data, amc_frequency_in_months: Number(data.amc_frequency_in_months) })
             if (!defaultValue?._id && dbClientId)
                 router.push(`/clients/${dbClientId}`)
             else if (defaultValue?._id)
@@ -211,6 +220,35 @@ const ClientDetail: React.FC<IProps> = ({ handler, disable = false, defaultValue
                         </div>
                     </div>
                     <div className="md:flex items-start gap-4 w-full !mt-4">
+                        <FormField
+                            control={form.control}
+                            name="amc_frequency_in_months"
+                            render={({ field }) => (
+                                <FormItem className='w-full mb-4 md:mb-0'>
+                                    <FormLabel className='text-gray-500'>AMC Frequency</FormLabel>
+                                    <FormControl>
+                                        <Select onValueChange={field.onChange}>
+                                            <SelectTrigger className="w-full bg-white" disabled={disableInput}>
+                                                <SelectValue placeholder={field.value} />
+                                            </SelectTrigger>
+                                            <SelectContent className='bg-white'>
+                                                {
+                                                    Object.entries(AMC_FREQUENCY)
+                                                        .filter(([key]) => isNaN(Number(key)))
+                                                        .map(([key, value]) => (
+                                                            <SelectItem value={value.toString()} key={value}>
+                                                                {value} {value === 1 ? 'month' : 'months'}
+                                                            </SelectItem>
+                                                        ))
+                                                }
+
+                                            </SelectContent>
+                                        </Select>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                         <FormItem className="w-full">
                             <FormLabel className='text-gray-500'>Parent Company</FormLabel>
                             <div className="relative">
@@ -258,7 +296,6 @@ const ClientDetail: React.FC<IProps> = ({ handler, disable = false, defaultValue
                             </div>
 
                         </FormItem>
-                        <div className="hidden sm:block w-full"></div>
                     </div>
 
                     <div className="mt-6">

@@ -32,6 +32,7 @@ const ReminderDetail: React.FC<IProps> = ({ id }) => {
                     <AgreementExpiryDetails
                         clientName={reminder?.client.name || ""}
                         productName={getProductNames(reminder.order.products) || ""}
+                        document={reminder?.context.agreement?.document || ""}
                         contacts={reminder?.client.point_of_contacts || []}
                         daysUntilExpiry={reminder?.context.agreement.expiry || 0}
                         orderLink={`/purchases/${reminder.order._id}?type=order&client=${reminder.client._id}`}

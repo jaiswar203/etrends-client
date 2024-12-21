@@ -330,7 +330,6 @@ const Email: React.FC<IProps> = ({ id, emailIndex }) => {
       })
 
     } catch (error) {
-      console.log({ error })
       toast({
         variant: "destructive",
         description: "Failed to send email"

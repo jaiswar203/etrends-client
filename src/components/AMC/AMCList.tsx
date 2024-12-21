@@ -38,17 +38,28 @@ import {
 import { useAppSelector } from '@/redux/hook'
 import { AMC_FILTER } from './AMC'
 
-type AMC = {
-    id: string
-    client: string
-    order: string
-    order_type: string
-    status: string
-}
+
+const upcomingMonths = [
+    {
+        id: 0,
+        name: "Upcoming 1 month",
+        value: 1
+    },
+    {
+        id: 1,
+        name: "Upcoming 2 months",
+        value: 2
+    },
+    {
+        id: 2,
+        name: "Upcoming 3 months",
+        value: 3
+    },
+]
 
 interface IProps {
     data: TransformedAMCObject[]
-    changeFilter: (filter: AMC_FILTER) => void
+    changeFilter: (filter: AMC_FILTER, options?: { upcoming: number }) => void
 }
 
 type TableData = {
@@ -58,6 +69,7 @@ type TableData = {
     status: string;
     due_date: string;
     orderId: string
+    amount: number
 }
 
 const columns: ColumnDef<TableData>[] = [
@@ -82,6 +94,10 @@ const columns: ColumnDef<TableData>[] = [
         },
     },
     {
+        accessorKey: "amount",
+        header: "Amount"
+    },
+    {
         accessorKey: 'due_date',
         header: 'Due Date',
     },
@@ -92,6 +108,9 @@ const AMCList: React.FC<IProps> = ({ data, changeFilter }) => {
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
     const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
     const [rowSelection, setRowSelection] = useState({})
+
+    const [showUpcomingMonthsFilter, setShowUpcomingMonthsFilter] = useState(true)
+
     const router = useRouter()
 
     const products = useAppSelector((state) => state.user.products)
@@ -103,7 +122,8 @@ const AMCList: React.FC<IProps> = ({ data, changeFilter }) => {
             order: d.products.map((p) => p.short_name).join(', '),
             status: d.last_payment?.status || '',
             due_date: new Date(d.last_payment?.to_date ?? '').toLocaleDateString(),
-            orderId: d.order._id,
+            orderId: d.order?._id,
+            amount: d.amount
         }))
     }, [data])
 
@@ -204,23 +224,51 @@ const AMCList: React.FC<IProps> = ({ data, changeFilter }) => {
                         </DropdownMenuContent>
                     </DropdownMenu>
 
+                    {
+                        // Upcoming Months Selector
+                        showUpcomingMonthsFilter &&
+                        <Select defaultValue={'1'} onValueChange={(value: string) => {
+                            changeFilter(AMC_FILTER.UPCOMING, { upcoming: Number(value) })
+                        }}>
+                            <SelectTrigger className="w-[180px] capitalize">
+                                <SelectValue placeholder="Select Months" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {upcomingMonths.map((month) => (
+                                    <SelectItem
+                                        key={month.id}
+                                        className="cursor-pointer capitalize"
+                                        value={month.value.toString()}
+                                        onClick={() => changeFilter(AMC_FILTER.UPCOMING, { upcoming: month.value })}
+                                    >
+                                        {month.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    }
                     <Select
                         defaultValue={AMC_FILTER.UPCOMING}
                         onValueChange={(value: AMC_FILTER) => {
                             // reset all filters
                             table.resetColumnFilters()
                             changeFilter(value)
+                            if (value === AMC_FILTER.UPCOMING) {
+                                setShowUpcomingMonthsFilter(true)
+                            } else {
+                                setShowUpcomingMonthsFilter(false)
+                            }
                         }}
                     >
                         <SelectTrigger className="w-[180px] capitalize">
                             <SelectValue placeholder="Select Filter" />
                         </SelectTrigger>
                         <SelectContent>
-                        {Object.values(AMC_FILTER).map((filter) => (
-                            <SelectItem key={filter} className="cursor-pointer capitalize" value={filter}>
-                                {filter} AMC
-                            </SelectItem>
-                        ))}
+                            {Object.values(AMC_FILTER).map((filter) => (
+                                <SelectItem key={filter} className="cursor-pointer capitalize" value={filter}>
+                                    {filter} AMC
+                                </SelectItem>
+                            ))}
                         </SelectContent>
                     </Select>
                 </div>

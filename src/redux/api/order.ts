@@ -76,11 +76,11 @@ export interface IOrderObject {
     calculated_amount: number;
     date: string;
   }[];
-  agreement_date: {
+  agreements: {
     start: Date;
     end: Date;
+    document: string;
   }[];
-  agreement_document: string;
   purchase_order_document: string;
   invoice_document: string;
   base_cost_seperation?: {
@@ -88,7 +88,10 @@ export interface IOrderObject {
     amount: number;
     percentage: number;
   }[];
-  other_document: string;
+  other_document: {
+    title: string;
+    url: string;
+  };
   amc_start_date: string;
   purchased_date: Date;
   deleted: boolean;
@@ -154,6 +157,7 @@ export interface IPurchase {
     ? { name: string }[]
     : IProduct[];
   status: string;
+  amc_start_date?: string | Date;
   id: string;
 }
 
@@ -331,10 +335,17 @@ export const orderApi = createApi({
     }),
     getAllAMC: builder.query<
       IResponse<TransformedAMCObject[]>,
-      { page?: number; limit?: number; filter?: AMC_FILTER }
+      {
+        page?: number;
+        limit?: number;
+        filter?: AMC_FILTER;
+        options: { upcoming: number };
+      }
     >({
       query: (body) =>
-        `/all-amc?page=${body.page || 1}&limit=${10}&filter=${body.filter}`,
+        `/all-amc?page=${body.page || 1}&limit=${10}&filter=${
+          body.filter
+        }&upcoming=${body.options.upcoming}`,
       providesTags: ["AMC_LIST"],
     }),
   }),

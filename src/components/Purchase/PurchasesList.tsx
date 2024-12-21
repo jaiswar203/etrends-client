@@ -95,6 +95,8 @@ const PurchasesList: React.FC<IProps> = ({ data, pagination }) => {
     const [purchasesData, setPurchasesData] = useState(data)
     const products = useAppSelector(state => state.user.products)
 
+    const [activeTabFilters, setActiveTabFilters] = useState({ pending_amc_start_date: false })
+
     const router = useRouter()
 
     const [columnVisibility, setColumnVisibility] =
@@ -113,6 +115,15 @@ const PurchasesList: React.FC<IProps> = ({ data, pagination }) => {
         }
     }, [data, id]);
 
+    useEffect(() => {
+        if (activeTabFilters.pending_amc_start_date) {
+            const filteredData = data.filter(purchase => purchase.amc_start_date === null)
+            setPurchasesData(filteredData)
+        } else {
+            setPurchasesData(data)
+        }
+    }, [activeTabFilters])
+
     const purchases = useMemo(() =>
         purchasesData.map((purchase) => ({
             id: purchase.id,
@@ -120,7 +131,8 @@ const PurchasesList: React.FC<IProps> = ({ data, pagination }) => {
             purchaseType: purchase.purchase_type,
             products: purchase.products.map((product) => product.short_name).join(', '),
             status: purchase.status,
-            client_id: purchase.client._id
+            client_id: purchase.client._id,
+            amc_start_date: purchase?.amc_start_date
         })) ?? []
         , [purchasesData])
 
@@ -164,6 +176,13 @@ const PurchasesList: React.FC<IProps> = ({ data, pagination }) => {
         },
     })
 
+    const onTabFilterChange = (tab: keyof typeof activeTabFilters) => {
+        setActiveTabFilters((prev) => ({
+            ...prev,
+            [tab]: !prev[tab],
+        }))
+    }
+
     return (
         <div>
             <div className="w-full">
@@ -178,32 +197,35 @@ const PurchasesList: React.FC<IProps> = ({ data, pagination }) => {
                         className="max-w-sm"
                     />
                     <div className="flex item-center gap-4">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" className="ml-auto">
-                                    {(table.getColumn('client')?.getFilterValue() as string) ?? 'Clients'}{' '}
-                                    <ChevronDown className="ml-2 h-4 w-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                {uniqueClients.map((client) => (
-                                    <DropdownMenuCheckboxItem
-                                        key={client}
-                                        className="capitalize"
-                                        checked={
-                                            table.getColumn('client')?.getFilterValue() === client
-                                        }
-                                        onCheckedChange={(value) => {
-                                            table
-                                                .getColumn('client')
-                                                ?.setFilterValue(value ? client : '')
-                                        }}
-                                    >
-                                        {client}
-                                    </DropdownMenuCheckboxItem>
-                                ))}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                        {!table.getColumn('products')?.getFilterValue() && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" className="ml-auto">
+                                        {(table.getColumn('client')?.getFilterValue() as string) ?? 'Clients'}{' '}
+                                        <ChevronDown className="ml-2 h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    {uniqueClients.map((client) => (
+                                        <DropdownMenuCheckboxItem
+                                            key={client}
+                                            className="capitalize"
+                                            checked={
+                                                table.getColumn('client')?.getFilterValue() === client
+                                            }
+                                            onCheckedChange={(value) => {
+                                                table
+                                                    .getColumn('client')
+                                                    ?.setFilterValue(value ? client : '')
+                                            }}
+                                        >
+                                            {client}
+                                        </DropdownMenuCheckboxItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+
+                        )}
                         {/* Create DropDowndown filter for Status and Order Type */}
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -226,6 +248,7 @@ const PurchasesList: React.FC<IProps> = ({ data, pagination }) => {
                                 ))}
                             </DropdownMenuContent>
                         </DropdownMenu>
+
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="outline" className="ml-auto capitalize">
@@ -239,7 +262,6 @@ const PurchasesList: React.FC<IProps> = ({ data, pagination }) => {
                                         className="capitalize"
                                         checked={table.getColumn('purchaseType')?.getFilterValue() === type}
                                         onCheckedChange={(value) => {
-                                            console.log({ value })
                                             table.getColumn('purchaseType')?.setFilterValue(value ? type : '')
                                         }}
                                     >
@@ -249,33 +271,43 @@ const PurchasesList: React.FC<IProps> = ({ data, pagination }) => {
                             </DropdownMenuContent>
                         </DropdownMenu>
 
+
                         {/* Products Dropdown */}
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" className="ml-auto ">
-                                    {(table.getColumn('products')?.getFilterValue() as string) || 'Products'} <ChevronDown className="ml-2 h-4 w-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                {uniqueProducts.map((product) => (
-                                    <DropdownMenuCheckboxItem
-                                        key={product}
-                                        className="capitalize"
-                                        checked={
-                                            table.getColumn('products')?.getFilterValue() === product
-                                        }
-                                        onCheckedChange={(value) => {
-                                            table
-                                                .getColumn('products')
-                                                ?.setFilterValue(value ? product : '')
-                                        }}
-                                    >
-                                        {product}
-                                    </DropdownMenuCheckboxItem>
-                                ))}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                        {!table.getColumn('client')?.getFilterValue() && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" className="ml-auto ">
+                                        {(table.getColumn('products')?.getFilterValue() as string) || 'Products'} <ChevronDown className="ml-2 h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    {uniqueProducts.map((product) => (
+                                        <DropdownMenuCheckboxItem
+                                            key={product}
+                                            className="capitalize"
+                                            checked={
+                                                table.getColumn('products')?.getFilterValue() === product
+                                            }
+                                            onCheckedChange={(value) => {
+                                                table
+                                                    .getColumn('products')
+                                                    ?.setFilterValue(value ? product : '')
+                                            }}
+                                        >
+                                            {product}
+                                        </DropdownMenuCheckboxItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )}
                     </div>
+                </div>
+                <div className="flex mb-2">
+                    <Button className='rounded-full !py-1 h-auto' variant={activeTabFilters.pending_amc_start_date ? "secondary" : "outline"} size={"sm"} onClick={() => {
+                        onTabFilterChange('pending_amc_start_date')
+                    }}>
+                        <span className='text-xs'>AMC Start Date Pending</span>
+                    </Button>
                 </div>
                 <div className="rounded-md border">
                     <Table>

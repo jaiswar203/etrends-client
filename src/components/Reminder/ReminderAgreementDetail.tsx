@@ -18,6 +18,7 @@ interface AgreementExpiryDetailsProps {
     clientId: string
     productName: string
     expiryDate: string
+    document: string,
     daysUntilExpiry: number
     contacts: Contact[]
     orderLink: string
@@ -29,18 +30,35 @@ export default function AgreementExpiryDetails({
     clientId,
     productName,
     expiryDate,
+    document,
     daysUntilExpiry,
     contacts,
     orderLink,
     reminderId
 }: AgreementExpiryDetailsProps) {
     const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('en-US', {
+        // Check if the date format is dd/mm/yyyy
+        const ddMmYyyyMatch = dateString.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+
+        let dateObj: Date;
+        if (ddMmYyyyMatch) {
+            const [_, dd, mm, yyyy] = ddMmYyyyMatch;
+            // Construct a date in yyyy-mm-dd format which is ISO-compliant
+            dateObj = new Date(`${yyyy}-${mm}-${dd}`);
+        } else {
+            dateObj = new Date(dateString);
+        }
+
+        if (isNaN(dateObj.getTime())) {
+            throw new Error('Invalid date string');
+        }
+
+        return dateObj.toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'long',
-            day: 'numeric'
-        })
-    }
+            day: 'numeric',
+        });
+    };
 
     return (
         <Card className="w-full mx-auto">
@@ -54,7 +72,7 @@ export default function AgreementExpiryDetails({
                 <CardDescription>Agreement Term End Information</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                         <h3 className="text-sm font-medium text-muted-foreground">Client</h3>
                         <p className="text-lg font-semibold">{clientName}</p>
@@ -62,6 +80,12 @@ export default function AgreementExpiryDetails({
                     <div className="space-y-2">
                         <h3 className="text-sm font-medium text-muted-foreground">Product</h3>
                         <p className="text-lg font-semibold">{productName}</p>
+                    </div>
+                    <div className="space-y-2">
+                        <h3 className="text-sm font-medium text-muted-foreground">Agreement Document</h3>
+                        <Link passHref href={document} target="_blank" rel="noopener noreferrer">
+                            <Button>View</Button>
+                        </Link>
                     </div>
                 </div>
 

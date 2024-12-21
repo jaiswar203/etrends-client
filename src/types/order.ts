@@ -16,10 +16,10 @@ export interface OrderDetailInputs {
     date: Date;
   }[];
   license?: string;
-  agreement_document: string;
-  agreement_date: {
+  agreements: {
     start: Date;
     end: Date;
+    document: string;
   }[];
   purchase_order_document?: string;
   invoice_document: string;

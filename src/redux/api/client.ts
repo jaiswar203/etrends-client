@@ -18,6 +18,24 @@ export type IClientDataObject = Omit<ClientDetailsInputs, "parent_company"> & {
   };
 };
 
+export type IClientProfitOrderDetail = Omit<IOrderObject, "products"> & {
+  products: IProduct[];
+};
+
+export interface IClientProfit {
+  total_profit: number;
+  upcoming_amc_profit: number;
+  total_amc_collection: number;
+  revenue_breakdown: {
+    base_cost: number;
+    customizations: number;
+    licenses: number;
+    additional_services: number;
+    amc: number;
+  };
+  orders: IClientProfitOrderDetail[];
+}
+
 type IUpdateClientRequest = ClientDetailsInputs & { id: string };
 
 export type GetAllClientResponse = Pick<
@@ -87,15 +105,7 @@ export const clientApi = createApi({
       query: (id) => `/parent-companies`,
       providesTags: ["PARENT_COMPANY_LIST"],
     }),
-    getProfitFromClient: builder.query<
-      IResponse<{
-        total_profit: number;
-        upcoming_amc_profit: number;
-        total_amc_collection: number;
-        orders: (Omit<IOrderObject, "products"> & { products: IProduct[] })[];
-      }>,
-      string
-    >({
+    getProfitFromClient: builder.query<IResponse<IClientProfit>, string>({
       query: (clientId) => `/${clientId}/profit`,
     }),
   }),

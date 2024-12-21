@@ -34,13 +34,9 @@ import { useRouter } from 'next/navigation'
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
-    DialogHeader,
     DialogTitle,
-    DialogTrigger,
 } from "@/components/ui/dialog"
 import ReminderDetail from './ReminderDetail'
-
 
 interface IProps {
     data: IReminderObject[]

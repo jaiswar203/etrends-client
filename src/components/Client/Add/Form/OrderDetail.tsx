@@ -22,7 +22,7 @@ import ProductDropdown from '@/components/common/ProductDropdown'
 import { AmountInput } from '@/components/ui/AmountInput'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import DatePicker from '@/components/ui/datepicker'
-import { CircleCheck, CirclePlus, CircleX, Edit, Eye, X } from 'lucide-react'
+import { CircleCheck, CirclePlus, CircleX, Edit, Eye, IndianRupee, Wrench, X } from 'lucide-react'
 import { Separator } from '@radix-ui/react-separator'
 import { Switch } from '@/components/ui/switch'
 import { useGetUrlForUploadMutation } from '@/redux/api/app'
@@ -44,6 +44,8 @@ import { ModuleData, ModulesCombobox } from '@/components/Purchase/Form/Customiz
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from '@/components/ui/dialog'
 import { useUpdateProductByIdMutation } from '@/redux/api/product'
+import { Card, CardContent } from '@/components/ui/card'
+import millify from 'millify'
 
 interface OrderProps {
     title?: string
@@ -75,6 +77,14 @@ const StatusOptions = [
         value: ORDER_STATUS_ENUM.INACTIVE,
     },
 ]
+
+
+type RenderFormFieldNameType = keyof OrderDetailInputs | keyof LicenseDetails |
+    `payment_terms.${number}.${keyof OrderDetailInputs['payment_terms'][number]}` |
+    `agreements.${number}.${keyof OrderDetailInputs['agreements'][number]}` |
+    `base_cost_seperation.${number}.${'product_id' | 'percentage' | 'amount'}`
+    | 'customization.cost' | `customization.modules.${number}` | "other_document.url"
+
 
 const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updateHandler, removeAccordion, defaultOpen = false, isLoading = false }) => {
     const [disableInput, setDisableInput] = useState(false);
@@ -128,10 +138,10 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                     date: undefined
                 },
             ],
-        agreement_document: "",
-        agreement_date: [{
+        agreements: [{
             start: undefined,
-            end: undefined
+            end: undefined,
+            document: ""
         }],
         total_cost: 0,
         license: "",
@@ -158,8 +168,7 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
         amc_rate: defaultValue.amc_rate,
         status: defaultValue.status as ORDER_STATUS_ENUM,
         payment_terms: defaultValue.payment_terms.map(term => ({ ...term, date: new Date(term.date) })),
-        agreement_document: defaultValue.agreement_document,
-        agreement_date: defaultValue.agreement_date,
+        agreements: defaultValue.agreements,
         cost_per_license: defaultValue.license?.rate.amount || 0,
         total_license: defaultValue.license?.total_license || 0,
         customization: {
@@ -169,7 +178,7 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
             type: defaultValue?.customization?.type || ("module" as CustomizationType),
         },
         amc_start_date: new Date(defaultValue.amc_start_date),
-        other_document: { title: "", url: defaultValue.other_document },
+        other_document: defaultValue?.other_document || { title: "", url: "" },
         purchase_order_document: defaultValue.purchase_order_document || "",
         invoice_document: defaultValue.invoice_document || "",
         purchased_date: new Date(defaultValue.purchased_date || new Date()),
@@ -196,7 +205,7 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
 
     const { fields: agreementDateFields, append: appendAgreementDateFields, remove: removeAgreementDateField } = useFieldArray({
         control: form.control,
-        name: "agreement_date"
+        name: "agreements"
     })
 
     // Create useFieldArray for customization modules
@@ -378,11 +387,6 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
         }
     }
 
-    type RenderFormFieldNameType = keyof OrderDetailInputs | keyof LicenseDetails |
-        `payment_terms.${number}.${keyof OrderDetailInputs['payment_terms'][number]}` |
-        `base_cost_seperation.${number}.${'product_id' | 'percentage' | 'amount'}`
-        | 'customization.cost' | `customization.modules.${number}` | "other_document.url"
-
     const renderFormField = (
         name: RenderFormFieldNameType,
         label: string | null,
@@ -415,8 +419,10 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                     if (term === 'percentage') {
                         const calculatedAmount = (value * form.getValues(`base_cost`)) / 100;
                         form.setValue(`base_cost_seperation.${parseInt(index)}.amount`, calculatedAmount);
-                        form.setValue(`base_cost_seperation.${parseInt(index)}.percentage`, value);
+                        field.onChange(e);
                     } else {
+                        const percentage = ((value / form.getValues(`base_cost`)) * 100).toFixed(2);
+                        form.setValue(`base_cost_seperation.${parseInt(index)}.percentage`, Number(percentage));
                         field.onChange(e);
                     }
                 },
@@ -444,8 +450,8 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
         const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, field: any) => {
             const file = e.target.files?.[0];
             if (file) {
-                await getSignedUrl(file, name as keyof OrderDetailInputs);
                 field.onChange(e);
+                await getSignedUrl(file, name as keyof OrderDetailInputs);
             }
         };
 
@@ -503,7 +509,6 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
         );
     };
 
-    // Create a function which validates and transform the data to correct types as per interface
     const transformFormData = (data: any) => {
         // Check required fields
         if (!data.products || data.products.length === 0) {
@@ -557,7 +562,7 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
         }
 
         // Validate Agreement Date
-        if (!data.agreement_date?.length || !data.agreement_date[0].start || !data.agreement_date[0].end) {
+        if (!data.agreements?.length || !data.agreements[0].start || !data.agreements[0].end) {
             toast({
                 variant: "destructive",
                 title: "Validation Error",
@@ -566,9 +571,8 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
             return;
         }
 
-
-        // Return transformed data if all validations pass
-        return {
+        // Transform the data
+        const transformedData = {
             ...data,
             base_cost: Number(data.base_cost) || 0,
             amc_rate: {
@@ -581,9 +585,10 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                 calculated_amount: Number(term.calculated_amount) || 0,
                 date: term.date ? new Date(term.date) : new Date()
             })),
-            agreement_date: data.agreement_date.map((date: any) => ({
+            agreements: data.agreements.map((date: any) => ({
                 start: date.start ? new Date(date.start) : new Date(),
-                end: date.end ? new Date(date.end) : new Date()
+                end: date.end ? new Date(date.end) : new Date(),
+                document: date.document || ""
             })),
             amc_start_date: data.amc_start_date ? new Date(data.amc_start_date) : undefined,
             customization: {
@@ -599,6 +604,8 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                 total_license: Number(data.total_license) || 0
             },
         };
+
+        return transformedData;
     };
 
     const onSubmit: SubmitHandler<OrderDetailInputs> = async (data) => {
@@ -765,329 +772,415 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
             )}
             <Form {...form}>
                 <form className="space-y-8" onSubmit={form.handleSubmit(onSubmit)}>
-                    <div className="md:flex items-end gap-4 w-full">
-                        <FormField
-                            control={form.control}
-                            name="products"
-                            render={({ field }) => (
-                                <FormItem className='w-full relative mb-4 md:mb-0'>
-                                    <FormLabel className='text-gray-500'>Select Products</FormLabel>
-                                    <FormControl>
-                                        <ProductDropdown
-                                            values={defaultValue?.products || []}
-                                            isMultiSelect
-                                            disabled={disableInput}
-                                            onSelectionChange={(selectedProducts) => {
-                                                onProductSelectHandler(selectedProducts)
-                                                field.onChange(selectedProducts.map(product => product._id));
-                                            }}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        {renderFormField("base_cost", "Base Cost", "Base Cost of the Product", "number")}
-                    </div>
-
-                    {
-                        (form.watch("products").length > 1 && baseCostSeparationFields.length > 0) && (
-                            <div className="">
-                                <Typography variant='h3'>Base Cost Seperation</Typography>
-
-                                <div className="mt-2 ">
-                                    {baseCostSeparationFields.map((baseCostSeperation, index) => {
-                                        const product = getProductById(baseCostSeperation.product_id);
-                                        return (
-                                            <div key={index} className="md:flex items-center relative gap-4 w-full mb-7 md:mb-4">
-                                                <FormItem className='w-full'>
-                                                    <FormLabel className='text-gray-500'>Product</FormLabel>
-                                                    <Input type="text" value={product?.name || ""} disabled />
-                                                </FormItem>
-                                                {renderFormField(`base_cost_seperation.${index}.percentage`, "Percentage", "Percentage from Base Cost", "number")}
-                                                {renderFormField(`base_cost_seperation.${index}.amount`, "Amount", "Amount(Auto Calculated)", "number")}
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            </div>
-                        )
-                    }
-                    <Separator className='bg-gray-300 w-full h-[1px] mt-4' />
-
-                    <div className="md:flex items-start gap-4 w-full mt-4">
-                        <FormField
-                            control={form.control}
-                            name="amc_rate"
-                            render={({ field }) => (
-                                <FormItem className='w-full relative mb-4 md:mb-0'>
-                                    <FormLabel className='text-gray-500'>AMC Rate (₹{form.watch("amc_rate.amount")})</FormLabel>
-                                    <FormControl>
-                                        <AmountInput
-                                            className='bg-white'
-                                            placeholder='AMC Rate'
-                                            disabled={disableInput}
-                                            defaultInputValue={{
-                                                percentage: field.value.percentage,
-                                                value: field.value.amount
-                                            }}
-                                            onModeChange={(isPercentage) => setIsPercentage(prev => ({ ...prev, amc_rate: isPercentage }))}
-                                            onValueChange={(value: number | null) => {
-                                                if (!value) return;
-                                                const baseCost = form.getValues("base_cost");
-                                                if (isPercentage.amc_rate) {
-                                                    const percentage = parseFloat(value.toString()) || 0;
-                                                    const calculatedAmount = (baseCost * percentage) / 100;
-                                                    field.onChange({
-                                                        percentage: percentage,
-                                                        amount: calculatedAmount.toString()
-                                                    });
-                                                    setIsPercentage({ ...isPercentage, amc_rate: true })
-                                                } else {
-                                                    const amount = parseFloat(value.toString()) || 0;
-                                                    const calculatedPercentage = (amount / baseCost) * 100;
-                                                    field.onChange({
-                                                        percentage: calculatedPercentage,
-                                                        amount: value
-                                                    });
-                                                    setIsPercentage({ ...isPercentage, amc_rate: false })
-                                                }
-                                            }}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="status"
-                            render={({ field }) => (
-                                <FormItem className='w-full relative'>
-                                    <FormLabel className='text-gray-500'>Order Status</FormLabel>
-                                    <FormControl>
-                                        <Select defaultValue={ORDER_STATUS_ENUM.ACTIVE} onValueChange={field.onChange} disabled={disableInput}>
-                                            <SelectTrigger className="w-full bg-white">
-                                                <SelectValue>{
-                                                    form.watch("status") === ORDER_STATUS_ENUM.ACTIVE ?
-                                                        <div className='flex justify-start items-center gap-2'>
-                                                            <span className="bg-green-500 w-2.5 h-2.5 rounded-full"></span>
-                                                            <span>Active</span>
-                                                        </div> :
-                                                        <div className='flex justify-start items-center gap-2'>
-                                                            <span className="bg-red-500 w-2.5 h-2.5 rounded-full"></span>
-                                                            <span>Inactive</span>
-                                                        </div>
-                                                }</SelectValue>
-                                            </SelectTrigger>
-                                            <SelectContent className="w-full">
-                                                {StatusOptions.map((status) => (
-                                                    <SelectItem key={status.value} value={status.value}>
-                                                        {status.label()}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    </div>
-                    <div className="flex items-start gap-4 w-full">
-                        <FormField
-                            control={form.control}
-                            name="purchased_date"
-                            render={({ field }) => (
-                                <FormItem className='w-full relative'>
-                                    <FormLabel className='text-gray-500'>Order Purchased Date</FormLabel>
-                                    <FormControl>
-                                        <DatePicker date={field.value} onDateChange={field.onChange} disabled={disableInput} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <div className=" hidden md:block w-full "></div>
-                    </div>
-
-
-                    {getSelectedProducts().some(product => product.does_have_license) && (
-                        <div className="mt-6">
-                            <Typography variant='h3'>Licenses</Typography>
-                            <div className="flex items-end md:flex-nowrap flex-wrap gap-4 w-full mt-2">
-                                {
-                                    form.watch("products").length > 1 && (
-                                        <FormField
-                                            control={form.control}
-                                            name="license"
-                                            render={({ field }) => (
-                                                <FormItem className='w-full relative'>
-                                                    <FormLabel className='text-gray-500'>Select Product</FormLabel>
-                                                    <FormControl>
-                                                        <ProductDropdown
-                                                            filterProducts={(product) => product.does_have_license}
-                                                            onSelectionChange={(selectedProducts) => selectedProducts.length && selectedProducts[0] ? field.onChange(selectedProducts[0]._id) : null}
-                                                            isMultiSelect={false}
-                                                            disabled={disableInput}
-                                                            values={
-                                                                defaultValue?.license ?
-                                                                    [defaultValue.products.find(product => product === defaultValue.license.product_id)]
-                                                                        .filter((product): product is string => product !== undefined)
-                                                                    :
-                                                                    []
-                                                            }
-                                                        />
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                    )
-                                }
-                                {renderFormField("cost_per_license", "Cost Per Licencse", "Cost Per Licencse", "number")}
-                                {renderFormField("total_license", "Enter Total Number of License", "Total number of Licenses ", "number")}
-
-                            </div>
-                            <Separator className='bg-gray-300 w-full h-[1px] mt-4' />
-                        </div>
-                    )}
-
-
-                    <div className="mt-6">
-                        <div className="flex items-center justify-between md:justify-start gap-4">
-                            <Typography variant='h3'>Customization</Typography>
-                            <Switch checked={enableCustomization} onCheckedChange={(val) => setEnableCustomization(val)} disabled={disableInput} />
-                        </div>
-                        {
-                            enableCustomization && (
-                                <div className="mt-2">
-                                    <div className="md:flex items-start gap-4 w-full">
-                                        {renderFormField("customization.cost", "Cost of Customization", "Enter customization cost which will add up in the Total Cost", "number")}
-                                        <FormItem className='w-full relative'>
-                                            <FormLabel className='text-gray-500'>AMC Rate After Customozation</FormLabel>
+                    <Card>
+                        <CardContent className='p-6'>
+                            <div className="md:flex items-end gap-4 w-full">
+                                <FormField
+                                    control={form.control}
+                                    name="products"
+                                    render={({ field }) => (
+                                        <FormItem className='w-full relative mb-4 md:mb-0'>
+                                            <FormLabel className='text-gray-500'>Select Products</FormLabel>
                                             <FormControl>
-                                                <Input
-                                                    type='number'
-                                                    value={amcRateAfterCustomization()}
-                                                    disabled
-                                                    className="bg-white !m-0"
+                                                <ProductDropdown
+                                                    values={defaultValue?.products || []}
+                                                    isMultiSelect
+                                                    disabled={disableInput}
+                                                    onSelectionChange={(selectedProducts) => {
+                                                        onProductSelectHandler(selectedProducts)
+                                                        field.onChange(selectedProducts.map(product => product._id));
+                                                    }}
                                                 />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
-                                    </div>
-                                    <div className="mt-2">
-                                        <FormField
-                                            control={form.control}
-                                            name="customization.type"
-                                            render={({ field }) => (
-                                                <FormItem className='md:w-1/2 mb-4 md:mb-0'>
-                                                    <FormLabel className='text-gray-500'>Type</FormLabel>
-                                                    <FormControl>
-                                                        <Select onValueChange={field.onChange}>
-                                                            <SelectTrigger className="w-full bg-white" disabled={disableInput}>
-                                                                <SelectValue placeholder={`${(field.value || 'module').charAt(0).toUpperCase() + (field.value || 'module').slice(1)}`} />
-                                                            </SelectTrigger>
-                                                            <SelectContent className='bg-white'>
-                                                                {
-                                                                    Object.values(CustomizationType).map((type) => (
-                                                                        <SelectItem value={type} key={type}>
-                                                                            {type.charAt(0).toUpperCase() + type.slice(1)}
-                                                                        </SelectItem>
-                                                                    ))
-                                                                }
+                                    )}
+                                />
+                                {renderFormField("base_cost", "Base Cost", "Base Cost of the Product", "number")}
+                            </div>
 
-                                                            </SelectContent>
-                                                        </Select>
+                            {
+                                (form.watch("products").length > 1 && baseCostSeparationFields.length > 0) && (
+                                    <div className="mt-4">
+                                        <Typography variant='h3'>Base Cost Seperation</Typography>
+
+                                        <div className="mt-2 ">
+                                            {baseCostSeparationFields.map((baseCostSeperation, index) => {
+                                                const product = getProductById(baseCostSeperation.product_id);
+                                                return (
+                                                    <div key={index} className="md:flex items-center relative gap-4 w-full mb-7 md:mb-4">
+                                                        <FormItem className='w-full'>
+                                                            <FormLabel className='text-gray-500'>Product</FormLabel>
+                                                            <Input type="text" value={product?.name || ""} disabled />
+                                                        </FormItem>
+                                                        {renderFormField(`base_cost_seperation.${index}.percentage`, "Percentage", "Percentage from Base Cost", "number")}
+                                                        {renderFormField(`base_cost_seperation.${index}.amount`, "Amount", "Amount(Auto Calculated)", "number")}
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                )
+                            }
+                            <Separator className='bg-gray-300 w-full h-[1px] mt-4' />
+
+                            <div className="md:flex items-start gap-4 w-full mt-4">
+                                <FormField
+                                    control={form.control}
+                                    name="amc_rate"
+                                    render={({ field }) => (
+                                        <FormItem className='w-full relative mb-4 md:mb-0'>
+                                            <FormLabel className='text-gray-500'>AMC Rate (₹{form.watch("amc_rate.amount")})</FormLabel>
+                                            <FormControl>
+                                                <AmountInput
+                                                    className='bg-white'
+                                                    placeholder='AMC Rate'
+                                                    disabled={disableInput}
+                                                    defaultInputValue={{
+                                                        percentage: field.value.percentage,
+                                                        value: field.value.amount
+                                                    }}
+                                                    onModeChange={(isPercentage) => setIsPercentage(prev => ({ ...prev, amc_rate: isPercentage }))}
+                                                    onValueChange={(value: number | null) => {
+                                                        if (!value) return;
+                                                        const baseCost = form.getValues("base_cost");
+                                                        if (isPercentage.amc_rate) {
+                                                            const percentage = parseFloat(value.toString()) || 0;
+                                                            const calculatedAmount = (baseCost * percentage) / 100;
+                                                            field.onChange({
+                                                                percentage: percentage,
+                                                                amount: calculatedAmount.toString()
+                                                            });
+                                                            setIsPercentage({ ...isPercentage, amc_rate: true })
+                                                        } else {
+                                                            const amount = parseFloat(value.toString()) || 0;
+                                                            const calculatedPercentage = (amount / baseCost) * 100;
+                                                            field.onChange({
+                                                                percentage: calculatedPercentage,
+                                                                amount: value
+                                                            });
+                                                            setIsPercentage({ ...isPercentage, amc_rate: false })
+                                                        }
+                                                    }}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="status"
+                                    render={({ field }) => (
+                                        <FormItem className='w-full relative'>
+                                            <FormLabel className='text-gray-500'>Order Status</FormLabel>
+                                            <FormControl>
+                                                <Select defaultValue={ORDER_STATUS_ENUM.ACTIVE} onValueChange={field.onChange} disabled={disableInput}>
+                                                    <SelectTrigger className="w-full bg-white">
+                                                        <SelectValue>{
+                                                            form.watch("status") === ORDER_STATUS_ENUM.ACTIVE ?
+                                                                <div className='flex justify-start items-center gap-2'>
+                                                                    <span className="bg-green-500 w-2.5 h-2.5 rounded-full"></span>
+                                                                    <span>Active</span>
+                                                                </div> :
+                                                                <div className='flex justify-start items-center gap-2'>
+                                                                    <span className="bg-red-500 w-2.5 h-2.5 rounded-full"></span>
+                                                                    <span>Inactive</span>
+                                                                </div>
+                                                        }</SelectValue>
+                                                    </SelectTrigger>
+                                                    <SelectContent className="w-full">
+                                                        {StatusOptions.map((status) => (
+                                                            <SelectItem key={status.value} value={status.value}>
+                                                                {status.label()}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+                            <div className="flex items-start gap-4 w-full">
+                                <FormField
+                                    control={form.control}
+                                    name="purchased_date"
+                                    render={({ field }) => (
+                                        <FormItem className='w-full relative'>
+                                            <FormLabel className='text-gray-500'>Order Purchased Date</FormLabel>
+                                            <FormControl>
+                                                <DatePicker date={field.value} onDateChange={field.onChange} disabled={disableInput} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <div className=" hidden md:block w-full "></div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {getSelectedProducts().some(product => product.does_have_license) && (
+                        <Card>
+                            <CardContent className='p-6'>
+                                <div className="">
+                                    <div className="flex justify-between items-center">
+                                        <Typography variant='h3'>Licenses</Typography>
+
+                                        <Card className='items-center'>
+                                            <CardContent className="flex items-center gap-2 justify-center p-3">
+                                                <Typography variant='h3'>Total Cost</Typography>
+                                                <Typography variant='p' className='flex items-center '>
+                                                    <IndianRupee className='text-green-600 size-5' />
+                                                    <span className="font-bold">{millify((form.watch("cost_per_license") || 0) * (form.watch("total_license") || 0), { precision: 2 })}</span>
+                                                </Typography>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                    <div className="flex items-end md:flex-nowrap flex-wrap gap-4 w-full mt-2">
+                                        {
+                                            form.watch("products").length > 1 && (
+                                                <FormField
+                                                    control={form.control}
+                                                    name="license"
+                                                    render={({ field }) => (
+                                                        <FormItem className='w-full relative'>
+                                                            <FormLabel className='text-gray-500'>Select Product</FormLabel>
+                                                            <FormControl>
+                                                                <ProductDropdown
+                                                                    filterProducts={(product) => product.does_have_license}
+                                                                    onSelectionChange={(selectedProducts) => selectedProducts.length && selectedProducts[0] ? field.onChange(selectedProducts[0]._id) : null}
+                                                                    isMultiSelect={false}
+                                                                    disabled={disableInput}
+                                                                    values={
+                                                                        defaultValue?.license ?
+                                                                            [defaultValue.products.find(product => product === defaultValue.license.product_id)]
+                                                                                .filter((product): product is string => product !== undefined)
+                                                                            :
+                                                                            []
+                                                                    }
+                                                                />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            )
+                                        }
+                                        {renderFormField("cost_per_license", "Cost Per Licencse", "Cost Per Licencse", "number")}
+                                        {renderFormField("total_license", "Enter Total Number of License", "Total number of Licenses ", "number")}
+
+                                    </div>
+                                </div>
+
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    <Card>
+                        <CardContent className='p-6'>
+                            <div className="">
+                                <div className="flex items-center justify-between md:justify-start gap-4">
+                                    <Typography variant='h3'>Customization</Typography>
+                                    <Switch checked={enableCustomization} onCheckedChange={(val) => setEnableCustomization(val)} disabled={disableInput} />
+                                </div>
+                                {
+                                    enableCustomization && (
+                                        <div className="mt-2">
+                                            <div className="md:flex items-start gap-4 w-full">
+                                                {renderFormField("customization.cost", "Cost of Customization", "Enter customization cost which will add up in the Total Cost", "number")}
+                                                <FormItem className='w-full relative'>
+                                                    <FormLabel className='text-gray-500'>AMC Rate After Customozation</FormLabel>
+                                                    <FormControl>
+                                                        <Input
+                                                            type='number'
+                                                            value={amcRateAfterCustomization()}
+                                                            disabled
+                                                            className="bg-white !m-0"
+                                                        />
                                                     </FormControl>
                                                     <FormMessage />
                                                 </FormItem>
-                                            )}
-                                        />
-                                    </div>
-                                    <div className="mt-2 md:mt-4">
-                                        <ModulesCombobox
-                                            data={createCustomizationModuleComboboxData()}
-                                            customizationModulesFields={form.watch("customization.type") === "report" ? reportFields : customizationModulesFields}
-                                            disableInput={disableInput}
-                                            appendCustomizationModule={appendCustomizationModule}
-                                            removeCustomizationModule={removeCustomizationModule}
-                                            setAddNewModule={setAddNewModule}
-                                            type={form.watch("customization.type") || "module"}
-                                        />
-                                        <div className="mt-3 md:w-1/2 w-11/12 max-h-96 overflow-y-auto">
-                                            {
-                                                getSelectModules()?.map((mod, index) => (
-                                                    <div className="mb-4 gap-2 relative" key={mod.key}>
-                                                        <Typography variant='h3' className='text-sm font-bold'>{mod.name}</Typography>
-                                                        <Typography variant='p' className='text-xs !text-gray-800 font-medium'>{mod.description || "No Description"}</Typography>
-                                                        <div className="absolute top-0 right-0 cursor-pointer" onClick={() => removeCustomizationModule(index, form.watch("customization.type") || "module")}>
-                                                            <X />
-                                                        </div>
-                                                    </div>
-                                                ))
-                                            }
+                                            </div>
+                                            <div className="mt-2">
+                                                <FormField
+                                                    control={form.control}
+                                                    name="customization.type"
+                                                    render={({ field }) => (
+                                                        <FormItem className='md:w-1/2 mb-4 md:mb-0'>
+                                                            <FormLabel className='text-gray-500'>Type</FormLabel>
+                                                            <FormControl>
+                                                                <Select onValueChange={field.onChange}>
+                                                                    <SelectTrigger className="w-full bg-white" disabled={disableInput}>
+                                                                        <SelectValue placeholder={`${(field.value || 'module').charAt(0).toUpperCase() + (field.value || 'module').slice(1)}`} />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent className='bg-white'>
+                                                                        {
+                                                                            Object.values(CustomizationType).map((type) => (
+                                                                                <SelectItem value={type} key={type}>
+                                                                                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                                                                                </SelectItem>
+                                                                            ))
+                                                                        }
+
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
+                                            <div className="mt-2 md:mt-4">
+                                                <ModulesCombobox
+                                                    data={createCustomizationModuleComboboxData()}
+                                                    customizationModulesFields={form.watch("customization.type") === "report" ? reportFields : customizationModulesFields}
+                                                    disableInput={disableInput}
+                                                    appendCustomizationModule={appendCustomizationModule}
+                                                    removeCustomizationModule={removeCustomizationModule}
+                                                    setAddNewModule={setAddNewModule}
+                                                    type={form.watch("customization.type") || "module"}
+                                                />
+                                                <div className="mt-3 md:w-1/2 w-11/12 max-h-96 overflow-y-auto">
+                                                    {
+                                                        getSelectModules()?.map((mod, index) => (
+                                                            <div className="mb-4 gap-2 relative" key={mod.key}>
+                                                                <Typography variant='h3' className='text-sm font-bold'>{mod.name}</Typography>
+                                                                <Typography variant='p' className='text-xs !text-gray-800 font-medium'>{mod.description || "No Description"}</Typography>
+                                                                <div className="absolute top-0 right-0 cursor-pointer" onClick={() => !disableInput && removeCustomizationModule(index, form.watch("customization.type") || "module")}>
+                                                                    <X className={disableInput ? "text-gray-500" : "text-black"} />
+                                                                </div>
+                                                            </div>
+                                                        ))
+                                                    }
+                                                </div>
+                                                <Dialog open={addNewModule.add} onOpenChange={(val) => !val && setAddNewModule({ add: false, value: "", description: "" })}>
+                                                    <DialogContent>
+                                                        <DialogTitle>Add New Module</DialogTitle>
+                                                        <DialogDescription className='!mt-0'>This module will automatically will be added in the products</DialogDescription>
+                                                        {
+                                                            addNewModule.add && (
+                                                                <div className="">
+                                                                    <FormItem className='w-full mb-4 md:mb-0'>
+                                                                        <FormControl>
+                                                                            <Select onValueChange={(value) => {
+                                                                                setAddNewModule(prev => ({ ...prev, product: value as string }))
+                                                                            }}>
+                                                                                <SelectTrigger className="w-full bg-white" disabled={disableInput}>
+                                                                                    <SelectValue placeholder={"Select a Product"} />
+                                                                                </SelectTrigger>
+                                                                                <SelectContent>
+                                                                                    {
+                                                                                        products?.map((product) => (
+                                                                                            <SelectItem value={product._id} key={product._id}>{product.name}</SelectItem>
+                                                                                        ))
+                                                                                    }
+                                                                                </SelectContent>
+                                                                            </Select>
+                                                                        </FormControl>
+                                                                        <FormMessage />
+                                                                    </FormItem>
+                                                                    <Input placeholder='Title' className='mt-3' onChange={(e) => setAddNewModule(prev => ({ ...prev, value: e.target.value }))} />
+                                                                    <Textarea placeholder='Description' className='mt-3 resize-none' rows={4} onChange={(e) => setAddNewModule(prev => ({ ...prev, description: e.target.value }))} />
+
+                                                                    <DialogFooter className='mt-4'>
+                                                                        <Button variant='default' className='!p-3 ' type='button' onClick={() => addCustomModuleInProduct(addNewModule.type)}>
+                                                                            Create
+                                                                        </Button>
+                                                                    </DialogFooter>
+
+                                                                </div>
+                                                            )
+                                                        }
+                                                    </DialogContent>
+                                                </Dialog>
+                                            </div>
                                         </div>
-                                        <Dialog open={addNewModule.add} onOpenChange={(val) => !val && setAddNewModule({ add: false, value: "", description: "" })}>
-                                            <DialogContent>
-                                                <DialogTitle>Add New Module</DialogTitle>
-                                                <DialogDescription className='!mt-0'>This module will automatically will be added in the products</DialogDescription>
-                                                {
-                                                    addNewModule.add && (
-                                                        <div className="">
-                                                            <FormItem className='w-full mb-4 md:mb-0'>
-                                                                <FormControl>
-                                                                    <Select onValueChange={(value) => {
-                                                                        setAddNewModule(prev => ({ ...prev, product: value as string }))
-                                                                    }}>
-                                                                        <SelectTrigger className="w-full bg-white" disabled={disableInput}>
-                                                                            <SelectValue placeholder={"Select a Product"} />
-                                                                        </SelectTrigger>
-                                                                        <SelectContent>
-                                                                            {
-                                                                                products?.map((product) => (
-                                                                                    <SelectItem value={product._id} key={product._id}>{product.name}</SelectItem>
-                                                                                ))
-                                                                            }
-                                                                        </SelectContent>
-                                                                    </Select>
-                                                                </FormControl>
-                                                                <FormMessage />
-                                                            </FormItem>
-                                                            <Input placeholder='Title' className='mt-3' onChange={(e) => setAddNewModule(prev => ({ ...prev, value: e.target.value }))} />
-                                                            <Textarea placeholder='Description' className='mt-3 resize-none' rows={4} onChange={(e) => setAddNewModule(prev => ({ ...prev, description: e.target.value }))} />
-
-                                                            <DialogFooter className='mt-4'>
-                                                                <Button variant='default' className='!p-3 ' type='button' onClick={() => addCustomModuleInProduct(addNewModule.type)}>
-                                                                    Create
-                                                                </Button>
-                                                            </DialogFooter>
-
-                                                        </div>
-                                                    )
-                                                }
-                                            </DialogContent>
-                                        </Dialog>
-                                    </div>
-                                </div>
-                            )
-                        }
-                    </div>
+                                    )
+                                }
+                            </div>
+                        </CardContent>
+                    </Card>
 
                     <div className="mt-6">
-                        <Typography variant='h3'>Payment Terms</Typography>
-                        <div className="mt-2">
-                            {paymentTermsFields.map((paymentTerm, index) => (
-                                <div key={paymentTerm.id} className="md:flex items-center relative gap-4 w-full mb-7 md:mb-4">
-                                    {renderFormField(`payment_terms.${index}.name`, null, "Name of the Payment Term")}
-                                    {renderFormField(`payment_terms.${index}.percentage_from_base_cost`, null, "Percentage from Base Cost", "number")}
-                                    {renderFormField(`payment_terms.${index}.calculated_amount`, null, "Amount(Auto Calculated)", "number")}
+                        <div className="">
+                            <Card>
+                                <CardContent className='p-6'>
+                                    <Typography variant='h3'>Payment Terms</Typography>
+                                    {paymentTermsFields.map((paymentTerm, index) => (
+                                        <div key={paymentTerm.id} className="md:flex items-center relative gap-4 w-full mb-7 md:mb-4">
+                                            {renderFormField(`payment_terms.${index}.name`, null, "Name of the Payment Term")}
+                                            {renderFormField(`payment_terms.${index}.percentage_from_base_cost`, null, "Percentage from Base Cost", "number")}
+                                            {renderFormField(`payment_terms.${index}.calculated_amount`, null, "Amount(Auto Calculated)", "number")}
+                                            <FormField
+                                                control={form.control}
+                                                name={`payment_terms.${index}.date`}
+                                                render={({ field }) => (
+                                                    <FormItem className='w-full relative'>
+                                                        <FormControl>
+                                                            <DatePicker date={field.value} onDateChange={field.onChange} placeholder='Pick a Date' disabled={disableInput} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <Button variant='destructive' onClick={() => removePaymentTerm(index)} className='w-full mt-2 md:mt-2 md:rounded-full md:w-8 md:h-8 ' disabled={disableInput}>
+                                                <X />
+                                                <span className='md:hidden block'>Delete</span>
+                                            </Button>
+
+                                        </div>
+                                    ))}
+                                    <div className="flex justify-center mt-4">
+                                        <Button
+                                            type='button'
+                                            disabled={disableInput}
+                                            onClick={addPaymentTerm}
+                                            className="flex items-center justify-center gap-2 py-5 md:w-72 bg-[#E6E6E6] text-black hover:bg-black hover:text-white group"
+                                        >
+                                            <CirclePlus className='!w-6 !h-6' />
+                                            <Typography variant='p' className='text-black group-hover:text-white'>Add more terms</Typography>
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            <div className="flex flex-col md:flex-row gap-4 w-full mt-4">
+                                <Card className="flex-1 transition-all duration-300 ease-in-out hover:shadow-lg hover:-translate-y-1">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h3 className="text-xl font-semibold text-gray-700">Total Cost</h3>
+                                            <IndianRupee className="w-6 h-6 text-green-500" />
+                                        </div>
+                                        <p className="text-3xl font-bold text-gray-800">
+                                            ₹{millify(calculateTotalCost(), { precision: 2 })}
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                                <Card className="flex-1 transition-all duration-300 ease-in-out hover:shadow-lg hover:-translate-y-1">
+                                    <CardContent className="p-6">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h3 className="text-xl font-semibold text-gray-700">AMC Amount</h3>
+                                            <Wrench className="w-6 h-6 text-blue-500" />
+                                        </div>
+                                        <p className="text-3xl font-bold text-gray-800">
+                                            ₹{millify(form.watch("amc_rate.amount"), { precision: 2 })}
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                        </div>
+                        <Card className='mt-4'>
+                            <CardContent className='p-6'>
+                                <div className="md:flex items-end gap-4 w-full mt-6">
                                     <FormField
                                         control={form.control}
-                                        name={`payment_terms.${index}.date`}
+                                        name={`amc_start_date`}
                                         render={({ field }) => (
-                                            <FormItem className='w-full relative'>
+                                            <FormItem className='w-full relative mb-4 md:mb-0'>
+                                                <FormLabel className='text-gray-500'>AMC Start Date</FormLabel>
                                                 <FormControl>
                                                     <DatePicker date={field.value} onDateChange={field.onChange} placeholder='Pick a Date' disabled={disableInput} />
                                                 </FormControl>
@@ -1095,109 +1188,72 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                                             </FormItem>
                                         )}
                                     />
-                                    <Button variant='destructive' onClick={() => removePaymentTerm(index)} className='w-full mt-2 md:mt-2 md:rounded-full md:w-8 md:h-8 ' disabled={disableInput}>
-                                        <X />
-                                        <span className='md:hidden block'>Delete</span>
-                                    </Button>
-
-                                </div>
-                            ))}
-                            <div className="flex justify-center mt-4">
-                                <Button
-                                    type='button'
-                                    disabled={disableInput}
-                                    onClick={addPaymentTerm}
-                                    className="flex items-center justify-center gap-2 py-5 md:w-72 bg-[#E6E6E6] text-black hover:bg-black hover:text-white group"
-                                >
-                                    <CirclePlus className='!w-6 !h-6' />
-                                    <Typography variant='p' className='text-black group-hover:text-white'>Add more terms</Typography>
-                                </Button>
-                            </div>
-                            <div className="md:flex items-start justify-end gap-4 w-full mt-4">
-                                <Typography variant='h3' className='text-gray-500 !mb-2'>Total Cost: <u>₹{calculateTotalCost()}</u></Typography>
-                                <Typography variant='h3' className='text-gray-500 !mb-2'>AMC Amount: <u>₹{form.watch("amc_rate.amount")}</u></Typography>
-                            </div>
-                            <Separator className='bg-gray-300 w-full h-[1px] ' />
-                            <div className="md:flex items-end gap-4 w-full mt-6">
-                                <FormField
-                                    control={form.control}
-                                    name={`amc_start_date`}
-                                    render={({ field }) => (
-                                        <FormItem className='w-full relative mb-4 md:mb-0'>
-                                            <FormLabel className='text-gray-500'>AMC Start Date</FormLabel>
-                                            <FormControl>
-                                                <DatePicker date={field.value} onDateChange={field.onChange} placeholder='Pick a Date' disabled={disableInput} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <div className="md:flex  items-start justify-between gap-4 w-full">
                                     {renderFormField("purchase_order_document", "PO Document", "", "file")}
+                                </div>
+                                <div className="md:flex items-end gap-4 w-full mt-6">
+                                    {renderFormField("invoice_document", "Invoice Document", "", "file", false)}
                                     {renderFormField("other_document.url", "Other Document", "", "file")}
                                 </div>
-                            </div>
-                            <div className="md:flex items-end gap-4 w-full mt-6">
-                                {renderFormField("invoice_document", "Invoice Document", "", "file", false)}
-                                {renderFormField("agreement_document", "Agreement Document", "", "file")}
-                            </div>
-                            <div className=" mt-6">
-                                <Typography variant='h3' className='mb-3'>Agreement Date</Typography>
-                                {
-                                    agreementDateFields.map((_, index: number) => (
-                                        <div className="md:flex items-end mb-4 justify-between gap-4 w-full" key={index}>
-                                            <FormField
-                                                control={form.control}
-                                                name={`agreement_date.${index}.start`}
+                                <div className=" mt-6">
+                                    <Typography variant='h3' className='mb-3'>Agreement Date</Typography>
+                                    {
+                                        agreementDateFields.map((_, index: number) => (
+                                            <div className="md:flex items-end mb-4 justify-between gap-4 w-full" key={index}>
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`agreements.${index}.start`}
 
-                                                render={({ field }) => (
-                                                    <FormItem className='w-full relative'>
-                                                        <FormLabel className='text-gray-500'>Agreement Start Date</FormLabel>
-                                                        <FormControl>
-                                                            <DatePicker date={field.value} onDateChange={field.onChange} placeholder='Pick a Date' disabled={disableInput} />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                            <FormField
-                                                control={form.control}
-                                                name={`agreement_date.${index}.end`}
-                                                render={({ field }) => (
-                                                    <FormItem className='w-full relative'>
-                                                        <FormLabel className='text-gray-500'>Agreement End Date</FormLabel>
-                                                        <FormControl>
-                                                            <DatePicker date={field.value} onDateChange={field.onChange} placeholder='Pick a Date' disabled={disableInput} />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                            <Button variant='destructive' onClick={() => removeAgreementDateField(index)} className='w-full mt-2 md:mt-2 md:rounded-full md:w-8 md:h-8 ' disabled={disableInput}>
-                                                <X />
-                                                <span className='md:hidden block'>Delete</span>
-                                            </Button>
-                                        </div>
-                                    ))
-                                }
-                                <div className="flex justify-center mt-4">
-                                    <Button
-                                        type='button'
-                                        disabled={disableInput}
-                                        onClick={() => {
-                                            appendAgreementDateFields({
-                                                start: new Date(),
-                                                end: new Date()
-                                            })
-                                        }}
-                                        className="flex items-center justify-center gap-2 py-5 md:w-72 bg-[#E6E6E6] text-black hover:bg-black hover:text-white group"
-                                    >
-                                        <CirclePlus className='!w-6 !h-6' />
-                                        <Typography variant='p' className='text-black group-hover:text-white'>Add more terms</Typography>
-                                    </Button>
+                                                    render={({ field }) => (
+                                                        <FormItem className='w-full relative'>
+                                                            <FormLabel className='text-gray-500'>Agreement Start Date</FormLabel>
+                                                            <FormControl>
+                                                                <DatePicker date={field.value} onDateChange={field.onChange} placeholder='Pick a Date' disabled={disableInput} />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`agreements.${index}.end`}
+                                                    render={({ field }) => (
+                                                        <FormItem className='w-full relative'>
+                                                            <FormLabel className='text-gray-500'>Agreement End Date</FormLabel>
+                                                            <FormControl>
+                                                                <DatePicker date={field.value} onDateChange={field.onChange} placeholder='Pick a Date' disabled={disableInput} />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                {renderFormField(`agreements.${index}.document`, "Agreement Document", "", "file")}
+                                                <Button variant='destructive' onClick={() => removeAgreementDateField(index)} className='w-full mt-2 md:mt-2 md:rounded-full md:w-8 md:h-8 ' disabled={disableInput}>
+                                                    <X />
+                                                    <span className='md:hidden block'>Delete</span>
+                                                </Button>
+                                            </div>
+                                        ))
+                                    }
+                                    <div className="flex justify-center mt-4">
+                                        <Button
+                                            type='button'
+                                            disabled={disableInput}
+                                            onClick={() => {
+                                                appendAgreementDateFields({
+                                                    start: new Date(),
+                                                    end: new Date(),
+                                                    document: ""
+                                                })
+                                            }}
+                                            className="flex items-center justify-center gap-2 py-5 md:w-72 bg-[#E6E6E6] text-black hover:bg-black hover:text-white group"
+                                        >
+                                            <CirclePlus className='!w-6 !h-6' />
+                                            <Typography variant='p' className='text-black group-hover:text-white'>Add more terms</Typography>
+                                        </Button>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
+                            </CardContent>
+                        </Card>
                     </div>
 
                     <div className="flex justify-end">

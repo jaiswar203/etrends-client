@@ -33,7 +33,6 @@ interface IProps {
 }
 
 export interface IAmcInputs {
-    amc_frequency_in_months: number,
     purchase_order_number: string,
     purchase_order_document: string
     invoice_document: string
@@ -45,22 +44,12 @@ export interface IAmcInputs {
     }[];
 }
 
-enum AMC_FREQUENCY {
-    ONE = 1,
-    THREE = 3,
-    SIX = 6,
-    TWELVE = 12,
-    EIGHTEEN = 18,
-    TWENTY_FOUR = 24
-}
-
 interface IDefaultValues {
     client: string
     total_cost: number
     amc_percentage: number
     amc_amount: number
     status: string
-    amc_frequency_in_months: number
     purchase_order_number: string
     purchase_order_document: string
     payments?: {
@@ -79,7 +68,6 @@ const AmcForm: React.FC<{ orderId: string, defaultValue?: IDefaultValues }> = ({
     const { uploadFile } = useFileUpload()
 
     const values = {
-        amc_frequency_in_months: defaultValue?.amc_frequency_in_months || 12,
         purchase_order_number: defaultValue?.purchase_order_number || '',
         purchase_order_document: defaultValue?.purchase_order_document || "",
         invoice_document: defaultValue?.invoice_document || "",
@@ -89,7 +77,6 @@ const AmcForm: React.FC<{ orderId: string, defaultValue?: IDefaultValues }> = ({
 
     const form = useForm<IAmcInputs>({
         defaultValues: {
-            amc_frequency_in_months: defaultValue?.amc_frequency_in_months || 12,
             purchase_order_number: defaultValue?.purchase_order_number ?? '',
             purchase_order_document: defaultValue?.purchase_order_document ?? '',
             invoice_document: defaultValue?.invoice_document ?? '',
@@ -106,7 +93,7 @@ const AmcForm: React.FC<{ orderId: string, defaultValue?: IDefaultValues }> = ({
 
     const onSubmit = async (data: IAmcInputs) => {
         try {
-            await updateAMCApi({ orderId, data: { ...data, amc_frequency_in_months: Number(data.amc_frequency_in_months) } }).unwrap()
+            await updateAMCApi({ orderId, data }).unwrap()
             toast({
                 variant: 'success',
                 title: 'AMC Created Successfully',
@@ -232,39 +219,10 @@ const AmcForm: React.FC<{ orderId: string, defaultValue?: IDefaultValues }> = ({
                     </div>
 
                     <div className="md:flex items-end  gap-4 w-full">
-                        <FormField
-                            control={form.control}
-                            name="amc_frequency_in_months"
-                            render={({ field }) => (
-                                <FormItem className='w-full mb-4 md:mb-0'>
-                                    <FormLabel className='text-gray-500'>AMC Frequency</FormLabel>
-                                    <FormControl>
-                                        <Select onValueChange={field.onChange}>
-                                            <SelectTrigger className="w-full bg-white" disabled={!enableEdit}>
-                                                <SelectValue placeholder={field.value} />
-                                            </SelectTrigger>
-                                            <SelectContent className='bg-white'>
-                                                {
-                                                    Object.entries(AMC_FREQUENCY)
-                                                        .filter(([key]) => isNaN(Number(key)))
-                                                        .map(([key, value]) => (
-                                                            <SelectItem value={value.toString()} key={value}>
-                                                                {value} {value === 1 ? 'month' : 'months'}
-                                                            </SelectItem>
-                                                        ))
-                                                }
-
-                                            </SelectContent>
-                                        </Select>
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
                         {renderInput("purchase_order_number", "Purchase Order Number", "Enter Purchase Order Number")}
-                    </div>
-                    <div className="md:flex items-center gap-4 w-full">
                         {renderInput("purchase_order_document", "Purchase Order Document", "Upload Purchase Order Document", "file")}
+                    </div>
+                    <div className="md:flex items-center gap-4 w-full md:w-1/2">
                         {renderInput("invoice_document", "Invoice Document", "Upload Invoice Document", "file")}
                     </div>
 
@@ -375,7 +333,6 @@ const AMCDetail: React.FC<IProps> = ({ orderId }) => {
         amc_percentage: 0,
         amc_amount: 0,
         status: '',
-        amc_frequency_in_months: 0,
         purchase_order_number: '',
         purchase_order_document: '',
         invoice_document: '',
@@ -390,7 +347,6 @@ const AMCDetail: React.FC<IProps> = ({ orderId }) => {
                 amc_percentage: orderData?.data.amc_rate.percentage,
                 amc_amount: data?.data.amount,
                 status: orderData?.data.status,
-                amc_frequency_in_months: data?.data.amc_frequency_in_months,
                 purchase_order_number: data?.data.purchase_order_number || '',
                 purchase_order_document: data?.data.purchase_order_document || '',
                 invoice_document: data?.data.invoice_document || '',

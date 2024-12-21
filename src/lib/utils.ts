@@ -9,3 +9,7 @@ export function dateToHumanReadable(date: Date | string) {
   return new Date(date).toLocaleDateString();
 }
 
+// create a function which takes whole string and capitalize first letter of each word
+export function capitalizeFirstLetter(str: string) {
+  return str.replace(/\b\w/g, (char) => char.toUpperCase());
+}

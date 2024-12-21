@@ -25,7 +25,6 @@ const NewLicense: React.FC<IProps> = ({ clientId }) => {
             })
             router.push(`/purchases?id=${license.data._id}`)
         } catch (error: any) {
-            console.log({ error })
             toast({
                 variant: "destructive",
                 title: "Error",

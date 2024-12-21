@@ -14,11 +14,11 @@ export enum AMC_FILTER {
 
 
 const AMC = () => {
-    const [queryArgs, setQueryArgs] = useState<{ page?: number, limit?: number, filter: AMC_FILTER }>({ filter: AMC_FILTER.UPCOMING })
+    const [queryArgs, setQueryArgs] = useState<{ page?: number, limit?: number, filter: AMC_FILTER, options: { upcoming: number } }>({ filter: AMC_FILTER.UPCOMING, options: { upcoming: 1 } })
     const { data, refetch } = useGetAllAMCQuery(queryArgs)
 
-    const handleFilterChange = (filter: AMC_FILTER) => {
-        setQueryArgs({ ...queryArgs, filter })
+    const handleFilterChange = (filter: AMC_FILTER, options?: { upcoming: number }) => {
+        setQueryArgs({ ...queryArgs, filter, ...(options && { options }) })
         refetch()
     }
 

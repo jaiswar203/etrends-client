@@ -10,13 +10,14 @@ export type ClientDetailsInputs = {
   parent_company?: {
     id: string;
     name: string;
-    new?:boolean
+    new?: boolean;
   };
   name: string;
   pan_number: string;
   gst_number: string;
   address: string;
   industry: string;
+  amc_frequency_in_months: number;
   vendor_id?: string;
   client_id?: string;
   point_of_contacts: IPOC[];

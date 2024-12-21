@@ -230,11 +230,10 @@ export default function ToolBar({ editor }: { editor: Editor | null }) {
             ${editor.getHTML()}
         </div>
     `;
-    
+
                 const doc = parser.parseFromString(wrapper, 'text/html');
                 const content = doc.body.firstElementChild;
                 if (content) {
-                    console.log(content.outerHTML)
                     editor.commands.setContent(content.outerHTML);
                 }
             },

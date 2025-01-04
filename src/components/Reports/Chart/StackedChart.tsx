@@ -137,5 +137,7 @@ const MultipleStackedChart: React.FC<MultipleStackedChartProps> = ({ data, heade
     );
 };
 
+CustomTooltip.displayName="CustomTooltip";
+
 export default MultipleStackedChart;
 

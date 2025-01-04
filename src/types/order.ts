@@ -1,3 +1,4 @@
+import { PAYMENT_STATUS_ENUM } from "@/redux/api/order";
 import { ORDER_STATUS_ENUM } from "./client";
 
 export interface OrderDetailInputs {
@@ -13,7 +14,9 @@ export interface OrderDetailInputs {
     name: string;
     percentage_from_base_cost: number;
     calculated_amount: number;
-    date: Date;
+    date?: Date;
+    payment_receive_date?: Date;
+    status?: PAYMENT_STATUS_ENUM;
   }[];
   license?: string;
   agreements: {
@@ -53,5 +56,7 @@ export interface CustomizationDetails {
   reports?: string[];
   purchased_date?: Date;
   purchase_order_document?: string;
+  payment_receive_date?: Date;
+  payment_status?: PAYMENT_STATUS_ENUM;
   type?: CustomizationType;
 }

@@ -83,7 +83,6 @@ const ReminderList: React.FC<IProps> = ({ data }) => {
         }))
     }, [data])
 
-
     // Extract unique reminder types and clients
     const uniqueReminderTypes = useMemo(
         () => Array.from(new Set(tableData.map((d) => d.type))),

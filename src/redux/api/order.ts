@@ -25,6 +25,8 @@ export interface ILicenceObject {
   total_license: number;
   purchase_date: string;
   purchase_order_document: string;
+  payment_receive_date?: Date;
+  payment_status?: PAYMENT_STATUS_ENUM;
   invoice: string;
   deleted: boolean;
   createdAt: string;
@@ -37,6 +39,8 @@ export interface ICustomizationObject {
   cost: number;
   modules: string[];
   reports: string[];
+  payment_receive_date?: Date;
+  payment_status?: PAYMENT_STATUS_ENUM;
   purchase_order_document: string;
   purchased_date: string;
   invoice_document: string;
@@ -57,6 +61,8 @@ export interface IAdditionalServiceObject {
   };
   cost: number;
   purchase_order_document?: string;
+  payment_receive_date?: Date;
+  payment_status?: PAYMENT_STATUS_ENUM;
   invoice_document?: string;
   service_document?: string;
   order_id: string;
@@ -75,6 +81,8 @@ export interface IOrderObject {
     percentage_from_base_cost: number;
     calculated_amount: number;
     date: string;
+    payment_receive_date?: Date;
+    status?: PAYMENT_STATUS_ENUM;
   }[];
   agreements: {
     start: Date;
@@ -115,13 +123,13 @@ export type TransformedAMCObject = Omit<IAMCObject, "order_id"> & {
 export enum PAYMENT_STATUS_ENUM {
   PAID = "paid",
   PENDING = "pending",
-  PARTIAL = "partial",
 }
 
 export interface IAMCPayment {
   from_date: Date;
   to_date: Date;
   status: PAYMENT_STATUS_ENUM;
+  received_date: Date;
 }
 
 export interface IAMCObject {
@@ -148,6 +156,46 @@ export enum PURCHASE_TYPE {
   LICENSE = "license",
   ADDITIONAL_SERVICE = "additional_service",
   ORDER = "order",
+}
+
+export type IPendingPaymentType =
+  | "amc"
+  | "order"
+  | "license"
+  | "customization"
+  | "additional_service";
+
+export interface IPendingPayment {
+  _id: string;
+  type: IPendingPaymentType;
+  status: string;
+  pending_amount: number;
+  payment_identifier?: string | number;
+  name: string;
+  payment_date: string;
+  [key: string]: any;
+}
+
+export interface IPendingPaymentPagination {
+  total: number;
+  currentPage: number;
+  totalPages: number;
+  limit: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+export interface IPendingPaymentResponse {
+  pending_payments: IPendingPayment[];
+  pagination: IPendingPaymentPagination;
+}
+
+export interface IUpdatePendingPaymentRequest {
+  _id: string;
+  type: IPendingPaymentType;
+  payment_identifier: string | number;
+  status: string;
+  payment_receive_date: Date;
 }
 
 export interface IPurchase {
@@ -180,6 +228,7 @@ export const orderApi = createApi({
     "LICENSE_DATA",
     "ADDITIONAL_SERVICE_DATA",
     "AMC_LIST",
+    "PENDING_PAYMENTS_LIST",
   ],
   endpoints: (builder) => ({
     getOrderById: builder.query<IResponse<IOrderObject>, string>({
@@ -348,6 +397,25 @@ export const orderApi = createApi({
         }&upcoming=${body.options.upcoming}`,
       providesTags: ["AMC_LIST"],
     }),
+    getAllPendingPayments: builder.query<
+      IResponse<IPendingPaymentResponse>,
+      { page?: number; limit?: number }
+    >({
+      query: (body) =>
+        `/pending-payments?page=${body.page || 1}&limit=${body.limit || 10}`,
+      providesTags: ["PENDING_PAYMENTS_LIST"],
+    }),
+    updatePendingPayment: builder.mutation<
+      IResponse,
+      IUpdatePendingPaymentRequest
+    >({
+      query: (body) => ({
+        url: `/pending-payments/${body._id}`,
+        method: HTTP_REQUEST.PATCH,
+        body,
+      }),
+      invalidatesTags: ["PENDING_PAYMENTS_LIST"],
+    }),
   }),
 });
 
@@ -369,4 +437,6 @@ export const {
   useUpdateLicenseByIdMutation,
   useUpdateAdditionalServiceByIdMutation,
   useGetAllAMCQuery,
+  useGetAllPendingPaymentsQuery,
+  useUpdatePendingPaymentMutation,
 } = orderApi;

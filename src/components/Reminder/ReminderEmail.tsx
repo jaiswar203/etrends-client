@@ -1,5 +1,5 @@
 "use client"
-import { REMINDER_TEMPLATES, useGetReminderByIdQuery, useSentEmailToClientMutation } from '@/redux/api/reminder'
+import { IEmailTemplate, REMINDER_TEMPLATES, useGetEmailTemplatesQuery, useGetReminderByIdQuery, useSentEmailToClientMutation } from '@/redux/api/reminder'
 import React, { useEffect, useState } from 'react'
 import Loading from '../ui/loading'
 import Typography from '../ui/Typography'
@@ -35,135 +35,6 @@ interface IProps {
   emailIndex: number
 }
 
-const DEFAULT_TEMPLATES = [
-  {
-    id: "amc-pending",
-    key: REMINDER_TEMPLATES.SEND_PENDING_AMC_REMINDER,
-    name: "AMC Payment Pending",
-    content: `
-      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 10px 20px 10px 20px; line-height: 1.6; color: #333;">
-        <h1>AMC Payment Reminder</h1>
-        <hr>
-        
-        <p style="margin: 16px 0;">Dear <strong>__1__</strong>,</p>
-        
-        <p style="margin: 16px 0;">This is a reminder that your Annual Maintenance Contract (AMC) payment is pending.</p>
-        
-        <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; margin: 20px 0;">
-          <p style="font-weight: 600; margin-bottom: 12px;">Details:</p>
-          <ul style="list-style: none; padding: 0; margin: 0;">
-            <li style="margin: 8px 0;"><span style="color: #64748b;">AMC Period:</span> <span style="color: #0f172a; font-weight: 500;">__3__</span></li>
-            <li style="margin: 8px 0;"><span style="color: #64748b;">Amount Due:</span> <span style="color: #0f172a; font-weight: 500;">₹__4__</span></li>
-            <li style="margin: 8px 0;"><span style="color: #64748b;">Due Date:</span> <span style="color: #0f172a; font-weight: 500;">__5__</span></li>
-          </ul>
-        </div>
-
-        <p style="margin: 16px 0;">Please process the payment at your earliest convenience to ensure uninterrupted service.</p>
-        
-        <p style="margin: 16px 0;">For any queries, please feel free to contact us.</p>
-        
-        <div style="margin-top: 30px; color: #4b5563;">
-          <p style="margin: 4px 0;">Best regards,</p>
-          <p style="margin: 4px 0; font-weight: 600;">Support Team</p>
-        </div>
-      </div>
-    `,
-    dynamic_variables: [
-      { id: 1, key: "__1__", field: "name" },
-      { id: 2, key: "__2__", field: "email" },
-      { id: 3, key: "__3__", field: "amc_cycle" },
-      { id: 4, key: "__4__", field: "amount" },
-      { id: 5, key: "__5__", field: "amc_date" }
-    ]
-  },
-  {
-    id: "amc-upcoming",
-    key: REMINDER_TEMPLATES.SEND_UPCOMING_AMC_REMINDER,
-    name: "Upcoming AMC Payment Reminder",
-    content: `
-      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; line-height: 1.6; color: #333;">
-        <h1 style="color: #0f172a; font-size: 24px; text-align: center;">Annual Maintenance Contract (AMC) Reminder</h1>
-        <hr style="border: 0; height: 1px; background-color: #e5e7eb; margin: 20px 0;">
-        
-        <p style="margin: 16px 0;">Dear <strong>__1__</strong>,</p>
-        
-        <p style="margin: 16px 0;">We hope this message finds you well. This is a friendly reminder regarding the upcoming payment for your Annual Maintenance Contract (AMC) associated with <strong>__2__</strong>.</p>
-        
-        <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; margin: 20px 0;">
-          <p style="font-weight: 600; margin-bottom: 12px;">AMC Details:</p>
-          <ul style="list-style: none; padding: 0; margin: 0; font-size: 14px;">
-            <li style="margin: 8px 0;"><strong>Client:</strong> __1__</li>
-            <li style="margin: 8px 0;"><strong>Product:</strong> __2__</li>
-            <li style="margin: 8px 0;"><strong>AMC Period:</strong> __3__</li>
-            <li style="margin: 8px 0;"><strong>Amount:</strong> ₹__4__</li>
-            <li style="margin: 8px 0;"><strong>Upcoming days:</strong> __5__ Days</li>
-          </ul>
-        </div>
-        
-        <p style="margin: 16px 0;">To continue uninterrupted service, we kindly request that you complete the payment before the due date.</p>
-  
-        <p style="margin: 16px 0;">If you have any questions or need assistance, feel free to contact our support team.</p>
-  
-        <div style="margin-top: 30px; color: #4b5563;">
-          <p style="margin: 4px 0;">Best regards,</p>
-          <p style="margin: 4px 0; font-weight: 600;">Support Team</p>
-        </div>
-      </div>
-    `,
-    dynamic_variables: [
-      { id: 1, key: "__1__", field: "name" },
-      { id: 2, key: "__2__", field: "product_name" },
-      { id: 3, key: "__3__", field: "amc_cycle" },
-      { id: 4, key: "__4__", field: "amount" },
-      { id: 5, key: "__5__", field: "upcoming" },
-    ]
-  },
-  {
-    id: "agreement-expiry-reminder",
-    key: REMINDER_TEMPLATES.SEND_AGREEMENT_EXPIRY_REMINDER,
-    name: "Agreement Expiry Reminder",
-    content: `
-      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; line-height: 1.6; color: #333;">
-        <h1 style="color: #0f172a; font-size: 24px; text-align: center;">Agreement Expiry Reminder</h1>
-        <hr style="border: 0; height: 1px; background-color: #e5e7eb; margin: 20px 0;">
-        
-        <p style="margin: 16px 0;">Dear <strong>__1__</strong>,</p>
-        
-        <p style="margin: 16px 0;">We hope this email finds you well. This is a friendly reminder that the agreement for your product, <strong>__2__</strong>, with <strong>__3__</strong>, is nearing its expiry date.</p>
-        
-        <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; margin: 20px 0;">
-          <p style="font-weight: 600; margin-bottom: 12px;">Agreement Details:</p>
-          <ul style="list-style: none; padding: 0; margin: 0; font-size: 14px;">
-            <li style="margin: 8px 0;"><strong>Client:</strong> __3__</li>
-            <li style="margin: 8px 0;"><strong>Product:</strong> __2__</li>
-            <li style="margin: 8px 0;"><strong>Expiry Date:</strong> __4__</li>
-            <li style="margin: 8px 0;"><strong>Days Remaining:</strong> __5__</li>
-          </ul>
-        </div>
-        
-        <p style="margin: 16px 0;">To ensure uninterrupted services, please review the agreement and take necessary actions before the expiry date.</p>
-
-  
-        <p style="margin: 16px 0;">If you have any questions or need assistance, please do not hesitate to contact us.</p>
-  
-        <div style="margin-top: 30px; color: #4b5563;">
-          <p style="margin: 4px 0;">Best regards,</p>
-          <p style="margin: 4px 0; font-weight: 600;">Support Team</p>
-        </div>
-      </div>
-    `,
-    dynamic_variables: [
-      { id: 1, key: "__1__", field: "contact_name" },
-      { id: 2, key: "__2__", field: "product" },
-      { id: 3, key: "__3__", field: "name" },
-      { id: 4, key: "__4__", field: "expiry_date" },
-      { id: 5, key: "__5__", field: "upcoming" },
-
-    ]
-  }
-]
-
-
 function dynamicVariableParser(content: string, templateVariables: any[], data: { [key: string]: string }) {
   let parsedContent = content;
   templateVariables.forEach(variable => {
@@ -180,6 +51,12 @@ export interface IEmailInputProps {
   to: string
   bcc?: string
   cc?: string
+  client_id?: string;
+  order_id?: string;
+  amc_id?: string;
+  license_id?: string;
+  customization_id?: string;
+  email_template_id: string;
 }
 
 const internalEmails = [
@@ -191,9 +68,11 @@ const internalEmails = [
 
 const Email: React.FC<IProps> = ({ id, emailIndex }) => {
   const { data } = useGetReminderByIdQuery(id)
+  const { data: emailTemplateApiRes } = useGetEmailTemplatesQuery()
+
   const products = useAppSelector((state) => state.user.products)
 
-  const [selectedTemplate, setSelectedTemplate] = useState({ id: "", name: "" })
+  const [selectedTemplate, setSelectedTemplate] = useState<Partial<IEmailTemplate>>({ key: "", name: "", content: "", dynamic_variables: [] })
   const [emailBodyContent, setEmailBodyContent] = useState("")
 
   const [sendEmailToClientApi, { isLoading }] = useSentEmailToClientMutation()
@@ -211,40 +90,50 @@ const Email: React.FC<IProps> = ({ id, emailIndex }) => {
 
   let payload: { [key: string]: string } = {}
 
-  const emailBody = (template: typeof DEFAULT_TEMPLATES[0]) => {
+  const emailBody = (template: IEmailTemplate) => {
     if (!template || !reminder) return
 
-    switch (template.id) {
-      case "amc-pending":
+    switch (template.key) {
+      case REMINDER_TEMPLATES.SEND_PENDING_AMC_REMINDER:
         payload = {
           name: data?.data?.client.point_of_contacts[emailIndex]?.name || "",
           email: form.getValues("to"),
           amc_cycle: String(reminder?.context?.amc?.cycle || ""),
           amount: String(reminder?.context?.amc?.amount || ""),
-          amc_date: String(reminder?.context?.amc?.date || "")
+          amc_date: String(reminder?.context?.amc?.date || ""),
+          client_id: reminder?.client?._id || "",
+          amc_id: reminder?.amc?._id || "",
+          order_id: reminder?.order?._id || "",
+          email_template_id: template._id
         }
         break;
-      case "amc-upcoming":
+      case REMINDER_TEMPLATES.SEND_UPCOMING_AMC_REMINDER:
         payload = {
           name: data?.data?.client.point_of_contacts[emailIndex]?.name || "",
           product_name: getProductNames(reminder?.order?.products || []) || "",
           amc_cycle: String(reminder?.context?.amc?.cycle || ""),
           amount: String(reminder?.context?.amc?.amount || ""),
-          upcoming: String(reminder?.context?.amc?.upcoming || 0)
+          upcoming: String(reminder?.context?.amc?.upcoming || 0),
+          client_id: reminder?.client?._id || "",
+          amc_id: reminder?.amc?._id || "",
+          order_id: reminder?.order?._id || "",
+          email_template_id: template._id
         }
         break;
-      case "agreement-expiry-reminder":
+      case REMINDER_TEMPLATES.SEND_AGREEMENT_EXPIRY_REMINDER:
         payload = {
           contact_name: data?.data?.client.point_of_contacts[emailIndex]?.name || "",
           name: reminder?.client?.name || "",
           product: getProductNames(reminder?.order?.products || []) || "",
           expiry_date: String(reminder?.context?.agreement?.expiryDate || ""),
-          upcoming: String(reminder?.context?.agreement?.upcoming || 0)
+          upcoming: String(reminder?.context?.agreement?.upcoming || 0),
+          client_id: reminder?.client?._id || "",
+          amc_id: reminder?.amc?._id || "",
+          order_id: reminder?.order?._id || "",
+          email_template_id: template._id
         }
         break;
     }
-
-
 
     if (template) {
       const emailBody = dynamicVariableParser(template.content, template.dynamic_variables, payload)
@@ -259,7 +148,7 @@ const Email: React.FC<IProps> = ({ id, emailIndex }) => {
       form.setValue("to", data.data.client.point_of_contacts[emailIndex].email)
       form.setValue("from", internalEmails[0].email)
       form.setValue("subject", data.data.subject)
-      const template = DEFAULT_TEMPLATES.find((template) => template.key === data.data.template)
+      const template = emailTemplateApiRes?.data.find((template) => template.key === data.data.template)
       if (template) {
         emailBody(template)
         setSelectedTemplate(template)
@@ -315,13 +204,19 @@ const Email: React.FC<IProps> = ({ id, emailIndex }) => {
     }
 
     try {
-      await sendEmailToClientApi({
+      const emailPayload = {
         ...data,
         to: data.to,
         from: data.from,
         subject: data.subject,
-        body: data.body
-      }).unwrap()
+        body: data.body,
+        email_template_id: selectedTemplate._id as string,
+        ...(reminder?.client?._id && { client_id: reminder.client._id }),
+        ...(reminder?.order?._id && { order_id: reminder.order._id }),
+        ...(reminder?.amc?._id && { amc_id: reminder.amc._id }),
+      };
+
+      await sendEmailToClientApi(emailPayload).unwrap();
       toast({
         variant: "success",
         description: "Email sent successfully"
@@ -344,9 +239,9 @@ const Email: React.FC<IProps> = ({ id, emailIndex }) => {
       </div>
       <div className="flex justify-end">
         <Select onValueChange={(val) => {
-          const template = DEFAULT_TEMPLATES.find((template) => template.id === val)
-          setSelectedTemplate(template || { id: "", name: "" })
+          const template = emailTemplateApiRes?.data.find((template) => template.key === val)
           if (template) {
+            setSelectedTemplate(template || { id: "", name: "" })
             emailBody(template)
           }
         }}>
@@ -356,11 +251,11 @@ const Email: React.FC<IProps> = ({ id, emailIndex }) => {
           <SelectContent>
             <SelectGroup>
               <SelectLabel>Templates</SelectLabel>
-              {DEFAULT_TEMPLATES.map((template) => (
+              {emailTemplateApiRes?.data.map((template) => (
                 <SelectItem
-                  value={template.id}
+                  value={template.key}
                   className='cursor-pointer'
-                  key={template.id}
+                  key={template.key}
                 >
                   {template.name}
                 </SelectItem>

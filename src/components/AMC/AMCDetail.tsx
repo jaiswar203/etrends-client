@@ -41,6 +41,7 @@ export interface IAmcInputs {
         from_date: Date;
         to_date: Date;
         status: PAYMENT_STATUS_ENUM;
+        received_date: Date;
     }[];
 }
 
@@ -56,6 +57,7 @@ interface IDefaultValues {
         from_date: Date;
         to_date: Date;
         status: PAYMENT_STATUS_ENUM;
+        received_date: Date;
     }[];
     invoice_document: string
     start_date: Date | undefined
@@ -92,6 +94,23 @@ const AmcForm: React.FC<{ orderId: string, defaultValue?: IDefaultValues }> = ({
     } = useFieldArray({ control: form.control, name: 'payments', })
 
     const onSubmit = async (data: IAmcInputs) => {
+        // check if payments status is changed but received date is not selected
+        const isPaymentStatusChanged = data?.payments?.filter((_, index) => index !== 0)?.some((payment, index) => {
+            return payment.status !== defaultValue?.payments?.[index].status
+        })
+
+        if (isPaymentStatusChanged) {
+            const isReceivedDateNotSelected = data?.payments?.some((payment) => !payment.received_date)
+            if (isReceivedDateNotSelected) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Error',
+                    description: 'Please select received date for the payment'
+                })
+                return
+            }
+        }
+
         try {
             await updateAMCApi({ orderId, data }).unwrap()
             toast({
@@ -273,16 +292,11 @@ const AmcForm: React.FC<{ orderId: string, defaultValue?: IDefaultValues }> = ({
                                                             {
                                                                 Object.entries(PAYMENT_STATUS_ENUM)
                                                                     .filter(([key]) => isNaN(Number(key)))
-                                                                    .map(([key, value]) => (
+                                                                    .map(([key, value]: [string, PAYMENT_STATUS_ENUM]) => (
                                                                         <SelectItem value={value} key={key} className='capitalize'>
                                                                             {value === PAYMENT_STATUS_ENUM.PAID ? (
                                                                                 <div className="flex items-center">
                                                                                     <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
-                                                                                    {value}
-                                                                                </div>
-                                                                            ) : value === PAYMENT_STATUS_ENUM.PARTIAL ? (
-                                                                                <div className="flex items-center">
-                                                                                    <div className="w-2 h-2 rounded-full bg-yellow-500 mr-2"></div>
                                                                                     {value}
                                                                                 </div>
                                                                             ) : (
@@ -296,6 +310,20 @@ const AmcForm: React.FC<{ orderId: string, defaultValue?: IDefaultValues }> = ({
                                                             }
                                                         </SelectContent>
                                                     </Select>
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    <FormField
+                                        control={form.control}
+                                        name={`payments.${index}.received_date`}
+                                        render={({ field }) => (
+                                            <FormItem className='w-full relative'>
+                                                <FormLabel className='text-gray-500'>Payment Receive Date</FormLabel>
+                                                <FormControl>
+                                                    <DatePicker date={field.value} onDateChange={field.onChange} placeholder='Pick a Date' disabled={!enableEdit} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>

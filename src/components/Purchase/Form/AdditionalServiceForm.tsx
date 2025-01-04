@@ -16,7 +16,7 @@ import {
 import { useFileUpload } from '@/hooks/useFileUpload'
 import DatePicker from '@/components/ui/datepicker'
 import { toast } from '@/hooks/use-toast'
-import { IAdditionalServiceObject } from '@/redux/api/order'
+import { IAdditionalServiceObject, PAYMENT_STATUS_ENUM } from '@/redux/api/order'
 import Link from 'next/link'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
@@ -37,6 +37,8 @@ export interface IAdditionalServiceInputs {
         end: Date;
     };
     cost: number;
+    payment_receive_date?: Date;
+    payment_status?: PAYMENT_STATUS_ENUM;
     purchase_order_document: string;
     service_document: string;
     invoice_document?: string;

@@ -35,8 +35,9 @@ export interface IAMCAnnualBreakDown {
 
 export interface IIndustryWiseRevenue {
   industry: string;
-  revenue: number;
   period: string;
+  total: number;
+  [key: string]: any;
 }
 
 export interface IProductWiseRevenueReportResponse {
@@ -45,6 +46,18 @@ export interface IProductWiseRevenueReportResponse {
   revenue: number;
   percentage: number;
   cumulativePercentage: number;
+}
+
+export interface ITotalBillingReport {
+  period: string;
+  total_amc_billing: number;
+  total_purchase_billing: number;
+}
+
+export interface IExpectedVsReceivedRevenue {
+  period: string;
+  expected_amount: number;
+  received_amount: number;
 }
 
 export const reportApi = createApi({
@@ -58,23 +71,40 @@ export const reportApi = createApi({
     },
   }),
   endpoints: (builder) => ({
-    getDetailedOverAllSalesReport: builder.query<
-      IResponse<IDetailedOverAllSalesReportResponse[]>,
+    getAMCAnnualBreakDown: builder.query<
+      IResponse<IAMCAnnualBreakDown[]>,
       IReportQueries
     >({
       query: ({ filter, options }) => ({
-        url: `/overall-sales-report?filter=${filter}&startDate=${options?.startDate}&endDate=${options?.endDate}&year=${options?.year}&quarter=${options?.quarter}`,
+        url: `/amc-annual-breakdown?filter=${filter}&startDate=${options?.startDate}&endDate=${options?.endDate}&year=${options?.year}&quarter=${options?.quarter}`,
         method: HTTP_REQUEST.GET,
       }),
     }),
-    getAmcRevenueReport: builder.query<
-      IResponse<
-        Pick<IDetailedOverAllSalesReportResponse, "total" | "period">[]
-      >,
+    // NEW QUERIES
+    getTotalBillingReport: builder.query<
+      IResponse<ITotalBillingReport[]>,
+      IReportQueries
+    >({
+      query: ({ filter = "monthly", options }) => ({
+        url: `/total-billing?filter=${filter}&startDate=${options?.startDate}&endDate=${options?.endDate}&year=${options?.year}&quarter=${options?.quarter}`,
+        method: HTTP_REQUEST.GET,
+      }),
+    }),
+    getExpectedVsReceivedRevenue: builder.query<
+      IResponse<IExpectedVsReceivedRevenue[]>,
       IReportQueries
     >({
       query: ({ filter, options }) => ({
-        url: `/amc-revenue-report?filter=${filter}&startDate=${options?.startDate}&endDate=${options?.endDate}&year=${options?.year}&quarter=${options?.quarter}`,
+        url: `/expected-vs-received-revenue?filter=${filter}&startDate=${options?.startDate}&endDate=${options?.endDate}&year=${options?.year}&quarter=${options?.quarter}`,
+        method: HTTP_REQUEST.GET,
+      }),
+    }),
+    getIndustryWiseRevenueReport: builder.query<
+      IResponse<IIndustryWiseRevenue[]>,
+      IReportQueries
+    >({
+      query: ({ filter, options }) => ({
+        url: `/industry-wise-revenue-distribution?filter=${filter}&startDate=${options?.startDate}&endDate=${options?.endDate}&year=${options?.year}&quarter=${options?.quarter}`,
         method: HTTP_REQUEST.GET,
       }),
     }),
@@ -87,31 +117,13 @@ export const reportApi = createApi({
         method: HTTP_REQUEST.GET,
       }),
     }),
-    getAMCAnnualBreakDown: builder.query<
-      IResponse<IAMCAnnualBreakDown[]>,
-      IReportQueries & { options: { productId?: string } }
-    >({
-      query: ({ filter, options }) => ({
-        url: `/amc-annual-breakdown?filter=${filter}&startDate=${options?.startDate}&endDate=${options?.endDate}&year=${options?.year}&quarter=${options?.quarter}&productId=${options?.productId}`,
-        method: HTTP_REQUEST.GET,
-      }),
-    }),
-    getIndustryWiseRevenueReport: builder.query<
-      IResponse<IIndustryWiseRevenue[]>,
-      IReportQueries & { options: { month?: string } }
-    >({
-      query: ({ filter, options }) => ({
-        url: `/industry-wise-revenue-distribution?filter=${filter}&month=${options?.month}`,
-        method: HTTP_REQUEST.GET,
-      }),
-    }),
   }),
 });
 
 export const {
-  useGetDetailedOverAllSalesReportQuery,
   useGetProductWiseRevenueReportQuery,
-  useGetAmcRevenueReportQuery,
   useGetAMCAnnualBreakDownQuery,
   useGetIndustryWiseRevenueReportQuery,
+  useGetTotalBillingReportQuery,
+  useGetExpectedVsReceivedRevenueQuery,
 } = reportApi;

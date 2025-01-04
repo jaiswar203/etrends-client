@@ -4,13 +4,16 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useGetAllProductsQuery } from "@/redux/api/product";
 import React, { useEffect } from "react";
 import { setProducts } from "@/redux/slices/user";
-import { useAppDispatch } from "@/redux/hook";
+import { useAppDispatch, useAppSelector } from "@/redux/hook";
+import { useRouter } from "next/navigation";
 
 const LayoutWithQuery = ({ children }: Readonly<{
   children: React.ReactNode;
 }>) => {
   const { data, isSuccess } = useGetAllProductsQuery();
-  const dispatch=useAppDispatch()
+  const dispatch = useAppDispatch()
+  const { user } = useAppSelector(state => state.user)
+  const router = useRouter()
 
   // set data once data is fetched
   useEffect(() => {
@@ -18,6 +21,14 @@ const LayoutWithQuery = ({ children }: Readonly<{
       dispatch(setProducts(data.data));
     }
   }, [data])
+
+  useEffect(() => {
+    if (!user.token) {
+      router.push('/auth/login')
+    }
+  }, [user, router])
+
+  if(!user.token) return null
 
   return (
     <SidebarProvider>

@@ -17,7 +17,7 @@ import {
 import { useFileUpload } from '@/hooks/useFileUpload'
 import DatePicker from '@/components/ui/datepicker'
 import { useToast } from '@/hooks/use-toast'
-import { ICustomizationObject } from '@/redux/api/order'
+import { ICustomizationObject, PAYMENT_STATUS_ENUM } from '@/redux/api/order'
 import Link from 'next/link'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { renderDisabledInput } from '@/components/ui/disabledInput'
@@ -202,7 +202,9 @@ const CustomizationForm: React.FC<ICustomationProps> = ({ clientId, handler, isL
         type: defaultValue.type,
         invoice_document: defaultValue.invoice_document,
         title: defaultValue?.title || "",
-        reports: defaultValue?.reports || []
+        reports: defaultValue?.reports || [],
+        payment_status: defaultValue?.payment_status || PAYMENT_STATUS_ENUM.PENDING,
+        payment_receive_date: defaultValue?.payment_receive_date ? new Date(defaultValue.payment_receive_date) : undefined
     }
 
     const defaultValues = {
@@ -214,7 +216,9 @@ const CustomizationForm: React.FC<ICustomationProps> = ({ clientId, handler, isL
         type: defaultValue?.type || CustomizationType.MODULE,
         invoice_document: defaultValue?.invoice_document || '',
         title: defaultValue?.title || "",
-        reports: defaultValue?.reports || []
+        reports: defaultValue?.reports || [],
+        payment_status: defaultValue?.payment_status || PAYMENT_STATUS_ENUM.PENDING,
+        payment_receive_date: defaultValue?.payment_receive_date ? new Date(defaultValue.payment_receive_date) : undefined
     }
 
 
@@ -365,6 +369,15 @@ const CustomizationForm: React.FC<ICustomationProps> = ({ clientId, handler, isL
             return
         }
 
+        if (data.payment_status === PAYMENT_STATUS_ENUM.PAID && !data.payment_receive_date) {
+            toast({
+                variant: 'destructive',
+                title: 'Required Fields Missing',
+                description: 'Please fill the Payment Receive Date'
+            })
+            return
+        }
+
         const product = productsList?.data.find((product) => product._id === data.product_id)
         if (!product) {
             throw new Error('Product not found')
@@ -508,7 +521,7 @@ const CustomizationForm: React.FC<ICustomationProps> = ({ clientId, handler, isL
             </div>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 mt-5">
-                    <div className="grid md:grid-cols-2 gap-6">
+                    <div className="grid md:grid-cols-2 gap-6 items-start">
                         {renderFormField('title', 'Title', 'Enter Title', 'text')}
                         <FormField
                             control={form.control}
@@ -584,33 +597,99 @@ const CustomizationForm: React.FC<ICustomationProps> = ({ clientId, handler, isL
                             )}
                         />
 
-                        <div className="md:flex items-end gap-4 w-full">
-                            {renderFormField('purchase_order_document', 'Purchase Order Document', 'Upload Purchase Order Document', 'file')}
-                            {renderFormField('invoice_document', 'Invoice Document', 'Upload Invoice Document', 'file')}
-                        </div>
 
-                        <div className="w-full">
-                            <FormField
-                                control={form.control}
-                                name="purchased_date"
-                                render={({ field }) => (
-                                    <FormItem className='w-full'>
-                                        <FormLabel className='text-gray-500'>Purchased Date</FormLabel>
-                                        <FormControl>
-                                            <DatePicker date={field.value} disabled={disableInput} onDateChange={field.onChange} placeholder='Pick end date' />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
+                        {renderFormField('purchase_order_document', 'Purchase Order Document', 'Upload Purchase Order Document', 'file')}
+                        {renderFormField('invoice_document', 'Invoice Document', 'Upload Invoice Document', 'file')}
+
+
+
+                        <FormField
+                            control={form.control}
+                            name="purchased_date"
+                            render={({ field }) => (
+                                <FormItem className='w-full'>
+                                    <FormLabel className='text-gray-500'>Purchased Date</FormLabel>
+                                    <FormControl>
+                                        <DatePicker date={field.value} disabled={disableInput} onDateChange={field.onChange} placeholder='Pick end date' />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
                         <div className="w-full md:flex items-center gap-4">
                             {renderDisabledInput("AMC Percentage", amcRate.percentage, "number")}
                             {renderDisabledInput("AMC Amount", amcRate.amount, "number")}
                         </div>
+
+                        <FormField
+                            control={form.control}
+                            name={`payment_status`}
+                            render={({ field }) => (
+                                <FormItem className='w-full mb-4 md:mb-0'>
+                                    <FormLabel className='text-gray-500'>Payment Status</FormLabel>
+                                    <FormControl>
+                                        <Select onValueChange={field.onChange}>
+                                            <SelectTrigger className="w-full bg-white" disabled={disableInput}>
+                                                <SelectValue className="capitalize" placeholder=
+                                                    {
+                                                        field.value === PAYMENT_STATUS_ENUM.PAID ? (
+                                                            <div className="flex items-center">
+                                                                <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
+                                                                {PAYMENT_STATUS_ENUM.PAID}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center">
+                                                                <div className="w-2 h-2 rounded-full bg-red-500 mr-2"></div>
+                                                                <span className="capitalize">{PAYMENT_STATUS_ENUM.PENDING}</span>
+                                                            </div>
+                                                        )
+                                                    }
+                                                >
+
+                                                </SelectValue>
+                                            </SelectTrigger>
+                                            <SelectContent className='bg-white'>
+                                                {
+                                                    Object.entries(PAYMENT_STATUS_ENUM)
+                                                        .filter(([key]) => isNaN(Number(key)))
+                                                        .map(([key, value]) => (
+                                                            <SelectItem value={value} key={key} className='capitalize'>
+                                                                {value === PAYMENT_STATUS_ENUM.PAID ? (
+                                                                    <div className="flex items-center">
+                                                                        <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
+                                                                        {value}
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="flex items-center">
+                                                                        <div className="w-2 h-2 rounded-full bg-red-500 mr-2"></div>
+                                                                        <span className="capitalize">{value}</span>
+                                                                    </div>
+                                                                )}
+                                                            </SelectItem>
+                                                        ))
+                                                }
+                                            </SelectContent>
+                                        </Select>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name={`payment_receive_date`}
+                            render={({ field }) => (
+                                <FormItem className='w-full relative'>
+                                    <FormLabel className='text-gray-500'>Payment Receive Date</FormLabel>
+                                    <FormControl>
+                                        <DatePicker date={field.value} onDateChange={field.onChange} placeholder='Payment Receive Date' disabled={disableInput} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                     </div>
-
-
 
                     <div className="gap-5">
                         {renderDynamicFields(form.getValues("type") as string || CustomizationType.MODULE)}
@@ -637,6 +716,8 @@ const CustomizationForm: React.FC<ICustomationProps> = ({ clientId, handler, isL
                             </DialogContent>
                         </Dialog>
                     </div>
+
+
 
                     <div className="flex justify-end">
                         <Button type="submit" className='md:w-48 w-full py-5 md:py-2' disabled={isLoading || disableInput} loading={{ isLoading, loader: "tailspin" }} >

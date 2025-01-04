@@ -31,7 +31,7 @@ import { v4 } from "uuid"
 import { useToast } from '@/hooks/use-toast'
 import { CustomizationType, LicenseDetails, OrderDetailInputs } from '@/types/order'
 import { useAppSelector } from '@/redux/hook'
-import { IOrderObject } from '@/redux/api/order'
+import { IOrderObject, PAYMENT_STATUS_ENUM } from '@/redux/api/order'
 import {
     Tooltip,
     TooltipContent,
@@ -123,19 +123,25 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                     name: "UAT",
                     percentage_from_base_cost: 0,
                     calculated_amount: 0,
-                    date: undefined
+                    date: undefined,
+                    status: PAYMENT_STATUS_ENUM.PENDING,
+                    payment_receive_date: undefined
                 },
                 {
                     name: "Deployment",
                     percentage_from_base_cost: 0,
                     calculated_amount: 0,
-                    date: undefined
+                    date: undefined,
+                    status: PAYMENT_STATUS_ENUM.PENDING,
+                    payment_receive_date: undefined
                 },
                 {
                     name: "Signoff",
                     percentage_from_base_cost: 0,
                     calculated_amount: 0,
-                    date: undefined
+                    date: undefined,
+                    status: PAYMENT_STATUS_ENUM.PENDING,
+                    payment_receive_date: undefined
                 },
             ],
         agreements: [{
@@ -167,7 +173,7 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
         base_cost: defaultValue.base_cost,
         amc_rate: defaultValue.amc_rate,
         status: defaultValue.status as ORDER_STATUS_ENUM,
-        payment_terms: defaultValue.payment_terms.map(term => ({ ...term, date: new Date(term.date) })),
+        payment_terms: defaultValue.payment_terms.map(term => ({ ...term, date: new Date(term.date), payment_receive_date: term.payment_receive_date ? new Date(term.payment_receive_date) : undefined })),
         agreements: defaultValue.agreements,
         cost_per_license: defaultValue.license?.rate.amount || 0,
         total_license: defaultValue.license?.total_license || 0,
@@ -379,7 +385,6 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                 description: `The file ${file.name} has been uploaded successfully.`,
             })
         } catch (error) {
-            console.log(error)
             toast({
                 variant: "destructive",
                 title: "File Upload Failed",
@@ -541,7 +546,15 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
 
         // Validate payment terms data
         for (const term of data.payment_terms) {
-            if (!term.name || !term.percentage_from_base_cost || !term.calculated_amount || !term.date) {
+            if (term.status === PAYMENT_STATUS_ENUM.PAID && !term.payment_receive_date) {
+                toast({
+                    variant: "destructive",
+                    title: "Validation Error",
+                    description: "Payment receive date is required for paid payment terms"
+                });
+                return;
+            }
+            if (!term.name || !term.percentage_from_base_cost || !term.calculated_amount) {
                 toast({
                     variant: "destructive",
                     title: "Validation Error",
@@ -904,7 +917,7 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                                     )}
                                 />
                             </div>
-                            <div className="flex items-start gap-4 w-full">
+                            <div className="flex items-start gap-4 w-full mt-4">
                                 <FormField
                                     control={form.control}
                                     name="purchased_date"
@@ -1121,7 +1134,72 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                                                 render={({ field }) => (
                                                     <FormItem className='w-full relative'>
                                                         <FormControl>
-                                                            <DatePicker date={field.value} onDateChange={field.onChange} placeholder='Pick a Date' disabled={disableInput} />
+                                                            <DatePicker date={field.value} onDateChange={field.onChange} placeholder='Date' disabled={disableInput} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name={`payment_terms.${index}.status`}
+                                                render={({ field }) => (
+                                                    <FormItem className='w-full mb-4 md:mb-0'>
+                                                        <FormControl>
+                                                            <Select onValueChange={field.onChange}>
+                                                                <SelectTrigger className="w-full bg-white" disabled={disableInput}>
+                                                                    <SelectValue className="capitalize" placeholder=
+                                                                        {
+                                                                            field.value === PAYMENT_STATUS_ENUM.PAID ? (
+                                                                                <div className="flex items-center">
+                                                                                    <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
+                                                                                    {PAYMENT_STATUS_ENUM.PAID}
+                                                                                </div>
+                                                                            ) : (
+                                                                                <div className="flex items-center">
+                                                                                    <div className="w-2 h-2 rounded-full bg-red-500 mr-2"></div>
+                                                                                    <span className="capitalize">{PAYMENT_STATUS_ENUM.PENDING}</span>
+                                                                                </div>
+                                                                            )
+                                                                        }
+                                                                    >
+
+                                                                    </SelectValue>
+                                                                </SelectTrigger>
+                                                                <SelectContent className='bg-white'>
+                                                                    {
+                                                                        Object.entries(PAYMENT_STATUS_ENUM)
+                                                                            .filter(([key]) => isNaN(Number(key)))
+                                                                            .map(([key, value]) => (
+                                                                                <SelectItem value={value} key={key} className='capitalize'>
+                                                                                    {value === PAYMENT_STATUS_ENUM.PAID ? (
+                                                                                        <div className="flex items-center">
+                                                                                            <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
+                                                                                            {value}
+                                                                                        </div>
+                                                                                    ) : (
+                                                                                        <div className="flex items-center">
+                                                                                            <div className="w-2 h-2 rounded-full bg-red-500 mr-2"></div>
+                                                                                            <span className="capitalize">{value}</span>
+                                                                                        </div>
+                                                                                    )}
+                                                                                </SelectItem>
+                                                                            ))
+                                                                    }
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name={`payment_terms.${index}.payment_receive_date`}
+                                                render={({ field }) => (
+                                                    <FormItem className='w-full relative'>
+                                                        <FormControl>
+                                                            <DatePicker date={field.value} onDateChange={field.onChange} placeholder='Payment Receive Date' disabled={disableInput} />
                                                         </FormControl>
                                                         <FormMessage />
                                                     </FormItem>
@@ -1131,7 +1209,6 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                                                 <X />
                                                 <span className='md:hidden block'>Delete</span>
                                             </Button>
-
                                         </div>
                                     ))}
                                     <div className="flex justify-center mt-4">
@@ -1203,7 +1280,6 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                                                 <FormField
                                                     control={form.control}
                                                     name={`agreements.${index}.start`}
-
                                                     render={({ field }) => (
                                                         <FormItem className='w-full relative'>
                                                             <FormLabel className='text-gray-500'>Agreement Start Date</FormLabel>

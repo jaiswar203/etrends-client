@@ -385,6 +385,7 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                 description: `The file ${file.name} has been uploaded successfully.`,
             })
         } catch (error) {
+            console.log(error)
             toast({
                 variant: "destructive",
                 title: "File Upload Failed",

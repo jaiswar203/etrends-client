@@ -114,6 +114,7 @@ export default function DataTableWithModalAndPagination({ data, pagination }: IP
             setUpdatePayment({ modal: false, data: updatePayment.data })
             setIsModalOpen(false)
         } catch (error) {
+            console.log(error)
             toast({
                 title: 'Error',
                 description: 'An error occurred while updating the payment',

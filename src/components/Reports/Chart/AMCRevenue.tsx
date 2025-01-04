@@ -1,15 +1,11 @@
 "use client";
 
-import React, { memo, useMemo } from "react";
 import {
     Bar,
     BarChart,
     CartesianGrid,
     ResponsiveContainer,
     XAxis,
-    YAxis,
-    Tooltip,
-    Legend,
 } from "recharts";
 import {
     Card,
@@ -25,9 +21,8 @@ import {
     ChartTooltipContent,
 } from "@/components/ui/chart";
 import Typography from "@/components/ui/Typography";
-import { capitalizeFirstLetter, cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import Loading from "@/components/ui/loading";
-import millify from "millify";
 import { IAMCAnnualBreakDown } from "@/redux/api/report";
 
 interface MultipleStackedChartProps {

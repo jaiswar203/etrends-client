@@ -944,15 +944,7 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                                     <div className="flex justify-between items-center">
                                         <Typography variant='h3'>Licenses</Typography>
 
-                                        <Card className='items-center'>
-                                            <CardContent className="flex items-center gap-2 justify-center p-3">
-                                                <Typography variant='h3'>Total Cost</Typography>
-                                                <Typography variant='p' className='flex items-center '>
-                                                    <IndianRupee className='text-green-600 size-5' />
-                                                    <span className="font-bold">{millify((form.watch("cost_per_license") || 0) * (form.watch("total_license") || 0), { precision: 2 })}</span>
-                                                </Typography>
-                                            </CardContent>
-                                        </Card>
+
                                     </div>
                                     <div className="flex items-end md:flex-nowrap flex-wrap gap-4 w-full mt-2">
                                         {
@@ -987,6 +979,17 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                                         {renderFormField("cost_per_license", "Cost Per Licencse", "Cost Per Licencse", "number")}
                                         {renderFormField("total_license", "Enter Total Number of License", "Total number of Licenses ", "number")}
 
+                                    </div>
+                                    <div className="flex justify-end mt-4">
+                                        <Card className='items-center'>
+                                            <CardContent className="flex items-center gap-2 justify-center p-3">
+                                                <Typography variant='h3'>Total Cost</Typography>
+                                                <Typography variant='p' className='flex items-center '>
+                                                    <IndianRupee className='text-green-600 size-5' />
+                                                    <span className="font-bold">{millify((form.watch("cost_per_license") || 0) * (form.watch("total_license") || 0), { precision: 2 })}</span>
+                                                </Typography>
+                                            </CardContent>
+                                        </Card>
                                     </div>
                                 </div>
 

@@ -14,12 +14,29 @@ export enum REMINDER_TEMPLATES {
   SEND_AGREEMENT_EXPIRY_REMINDER = "agreement-expiry-reminder",
 }
 
+export interface IEmailTemplate {
+  _id: string;
+  key: string;
+  name: string;
+  content: string;
+  dynamic_variables: {
+    _id: string;
+    key: string;
+    field: string;
+  }[];
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
 export interface IReminderObject {
   from: string;
   to: string;
   _id: string;
   subject: string;
   template: REMINDER_TEMPLATES;
+  email_template: IEmailTemplate;
+  body: string;
+  communication_type: string;
   context: any;
   status: "sent" | "failed";
   client: IClientDataObject;
@@ -57,6 +74,15 @@ export const reminderApi = createApi({
         body,
       }),
     }),
+    getEmailTemplates: builder.query<IResponse<IEmailTemplate[]>, void>({
+      query: () => `email/templates`,
+    }),
+    getExternalCommunicationHistory: builder.query<
+      IResponse<(IReminderObject & { email_template: IEmailTemplate })[]>,
+      void
+    >({
+      query: () => `email/external/history`,
+    }),
   }),
 });
 
@@ -64,4 +90,6 @@ export const {
   useGetReminderByIdQuery,
   useGetRemindersQuery,
   useSentEmailToClientMutation,
+  useGetEmailTemplatesQuery,
+  useGetExternalCommunicationHistoryQuery,
 } = reminderApi;

@@ -16,7 +16,7 @@ import {
 import DatePicker from '@/components/ui/datepicker'
 import { useFileUpload } from '@/hooks/useFileUpload'
 import { toast } from '@/hooks/use-toast'
-import { ILicenceObject } from '@/redux/api/order'
+import { ILicenceObject, PAYMENT_STATUS_ENUM } from '@/redux/api/order'
 import Link from 'next/link'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { renderDisabledInput } from '@/components/ui/disabledInput'
@@ -36,6 +36,8 @@ export interface ILicenseInputs {
     product_id: string;
     purchase_date: Date
     purchase_order_document: string
+    payment_receive_date?: Date;
+    payment_status?: PAYMENT_STATUS_ENUM;
     invoice: string
 }
 
@@ -52,7 +54,9 @@ const LicenseForm: React.FC<ILicenseProps> = ({ clientId, handler, isLoading, la
         product_id: defaultValue?.product_id || '',
         purchase_date: defaultValue?.purchase_date ? new Date(defaultValue?.purchase_date) : undefined,
         purchase_order_document: defaultValue?.purchase_order_document || "",
-        invoice: defaultValue?.invoice || ""
+        invoice: defaultValue?.invoice || "",
+        payment_status: defaultValue?.payment_status || PAYMENT_STATUS_ENUM.PENDING,
+        payment_receive_date: defaultValue?.payment_receive_date ? new Date(defaultValue?.payment_receive_date) : undefined
     }
 
 
@@ -67,6 +71,8 @@ const LicenseForm: React.FC<ILicenseProps> = ({ clientId, handler, isLoading, la
             form.setValue('purchase_date', defaultValue.purchase_date ? new Date(defaultValue.purchase_date) : new Date())
             form.setValue('purchase_order_document', defaultValue.purchase_order_document)
             form.setValue('invoice', defaultValue.invoice)
+            form.setValue('payment_status', defaultValue.payment_status)
+            form.setValue('payment_receive_date', defaultValue.payment_receive_date ? new Date(defaultValue.payment_receive_date) : undefined)
         }
     }, [defaultValue])
 
@@ -166,6 +172,16 @@ const LicenseForm: React.FC<ILicenseProps> = ({ clientId, handler, isLoading, la
             });
             return;
         }
+
+        if (data.payment_status === PAYMENT_STATUS_ENUM.PAID && !data.payment_receive_date) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Payment receive date is required when payment status is paid"
+            });
+            return;
+        }
+
         const product = productsList?.data.find((product) => product._id === data.product_id)
         if (!product) {
             throw new Error('Product not found')
@@ -259,7 +275,7 @@ const LicenseForm: React.FC<ILicenseProps> = ({ clientId, handler, isLoading, la
                     </div>
                     <div className="md:flex items-center gap-4 w-full">
                         {renderFormField('total_license', 'Total License', 'Enter total license')}
-                        <div className="md:flex items-start gap-4 w-full">
+                        <div className="md:flex items-end gap-4 w-full">
                             {renderDisabledInput("AMC Percentage", amcRate.percentage, "number")}
                             {renderDisabledInput("AMC Amount", amcRate.amount, "number")}
                         </div>
@@ -283,6 +299,76 @@ const LicenseForm: React.FC<ILicenseProps> = ({ clientId, handler, isLoading, la
                             {renderFormField('invoice', 'Invoice', 'Upload Invoice', 'file')}
                         </div>
                     </div>
+                    <div className="md:flex items-end gap-4 w-full">
+                        <FormField
+                            control={form.control}
+                            name={`payment_status`}
+                            render={({ field }) => (
+                                <FormItem className='w-full mb-4 md:mb-0'>
+                                    <FormLabel className='text-gray-500'>Payment Status</FormLabel>
+                                    <FormControl>
+                                        <Select onValueChange={field.onChange}>
+                                            <SelectTrigger className="w-full bg-white" disabled={disableInput}>
+                                                <SelectValue className="capitalize" placeholder=
+                                                    {
+                                                        field.value === PAYMENT_STATUS_ENUM.PAID ? (
+                                                            <div className="flex items-center">
+                                                                <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
+                                                                {PAYMENT_STATUS_ENUM.PAID}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center">
+                                                                <div className="w-2 h-2 rounded-full bg-red-500 mr-2"></div>
+                                                                <span className="capitalize">{PAYMENT_STATUS_ENUM.PENDING}</span>
+                                                            </div>
+                                                        )
+                                                    }
+                                                >
+
+                                                </SelectValue>
+                                            </SelectTrigger>
+                                            <SelectContent className='bg-white'>
+                                                {
+                                                    Object.entries(PAYMENT_STATUS_ENUM)
+                                                        .filter(([key]) => isNaN(Number(key)))
+                                                        .map(([key, value]) => (
+                                                            <SelectItem value={value} key={key} className='capitalize'>
+                                                                {value === PAYMENT_STATUS_ENUM.PAID ? (
+                                                                    <div className="flex items-center">
+                                                                        <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
+                                                                        {value}
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="flex items-center">
+                                                                        <div className="w-2 h-2 rounded-full bg-red-500 mr-2"></div>
+                                                                        <span className="capitalize">{value}</span>
+                                                                    </div>
+                                                                )}
+                                                            </SelectItem>
+                                                        ))
+                                                }
+                                            </SelectContent>
+                                        </Select>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name={`payment_receive_date`}
+                            render={({ field }) => (
+                                <FormItem className='w-full relative'>
+                                    <FormLabel className='text-gray-500'>Payment Receive Date</FormLabel>
+                                    <FormControl>
+                                        <DatePicker date={field.value} onDateChange={field.onChange} placeholder='Payment Receive Date' disabled={disableInput} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+
                     <div className="flex justify-end">
                         <Button type="submit" className='md:w-36 w-full py-5 md:py-2' disabled={isLoading || disableInput} loading={{ isLoading, loader: "tailspin" }} >
                             <CircleCheck />

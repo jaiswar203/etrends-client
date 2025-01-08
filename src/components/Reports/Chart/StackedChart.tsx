@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { memo, useMemo } from "react";
 import {
     Bar,
     BarChart,
@@ -11,210 +11,133 @@ import {
     Tooltip,
     Legend,
 } from "recharts";
-import { jsPDF } from "jspdf";
-import html2canvas from "html2canvas";
 import {
     Card,
     CardContent,
-    CardFooter,
     CardHeader,
 } from "@/components/ui/card";
 import {
     ChartContainer,
     ChartLegendContent,
-    ChartTooltipContent,
 } from "@/components/ui/chart";
 import Typography from "@/components/ui/Typography";
-import { Button } from "@/components/ui/button";
-import { IAMCAnnualBreakDown } from "@/redux/api/report";
-import { filterOptions, generateQuarters, generateYears, IFilterConfig, SelectComponent } from "./RevenueChart";
-import { capitalizeFirstLetter } from "@/lib/utils";
-import { useAppSelector } from "@/redux/hook";
+import { capitalizeFirstLetter, cn } from "@/lib/utils";
 import Loading from "@/components/ui/loading";
+import millify from "millify";
 
-interface StackedChartProps {
-    data: IAMCAnnualBreakDown[];
+interface MultipleStackedChartProps {
+    data: any[];
     isLoading: boolean;
     header: string;
     description: string;
-    filtersConfig: IFilterConfig & { options: { productId?: string } };
-    onFiltersChange: (filters: any) => void;
+    chartConfigClassName?: string;
 }
 
-const StackedChart: React.FC<StackedChartProps> = ({ data, header, description, filtersConfig, isLoading, onFiltersChange }) => {
-    const chartRef = useRef<HTMLDivElement | null>(null);
-    const [filters, setFilters] = useState(filtersConfig);
-    const { products } = useAppSelector(state => state.user)
-
-    const chartConfig = {
-        totalExpected: {
-            label: "Total Expected",
-            color: "hsl(var(--chart-1))",
-        },
-        totalCollected: {
-            label: "Total Collected",
-            color: "hsl(var(--chart-2))",
-        },
-    };
-
-    const handleDownloadPDF = () => {
-        const chartElement = chartRef.current;
-        if (!chartElement) return;
-
-        html2canvas(chartElement, { scale: 2 }).then((canvas) => {
-            const pdf = new jsPDF("landscape", "mm", "a4");
-            const imgData = canvas.toDataURL("image/png");
-
-            // Add header and description
-            pdf.setFontSize(18).setFont("Helvetica", "", "bold");
-            pdf.text(header, 10, 10);
-            pdf.setFontSize(12).text(description, 10, 15);
-            pdf.text("Generated on: " + new Date().toLocaleDateString(), 10, 20);
-
-            // Add chart image
-            const imgWidth = 280;
-            const imgHeight = (canvas.height * imgWidth) / canvas.width;
-            pdf.addImage(imgData, "PNG", 10, 30, imgWidth, imgHeight);
-
-            // Save PDF
-            pdf.save(`${header}.pdf`);
-        });
-    };
+const CustomTooltip = memo(({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+        const total = payload[0].payload.total;
+        return (
+            <div className="bg-background p-4 rounded-md shadow-md border border-border">
+                <p className="font-bold">{`Industry: `} <span className="capitalize">{label}</span></p>
+                <div className="my-1">
+                    {payload.map((entry: any) => (
+                        <div key={entry.name} className="flex items-center gap-2">
+                            <div className="size-2 rounded-full" style={{ background: entry.color }}>
+                            </div>
+                            <p>
+                                {`${entry.name}: ${millify(entry.value)}`}
+                            </p>
+                        </div>
+                    ))}
+                </div>
+                <p className="font-bold">{`Total: ${millify(total)}`}</p>
+            </div>
+        );
+    }
+    return null;
+});
 
 
-    const onFilterChange = (value: string) => {
-        const updatedFilters = { ...filters };
+const MultipleStackedChart: React.FC<MultipleStackedChartProps> = ({ data, header, description, isLoading, chartConfigClassName }) => {
+    const chartConfig = useMemo(() => {
+        const config: { [key: string]: { label: string; color: string } } = {};
+        const colors = [
+            "hsl(var(--chart-1))",
+            "hsl(var(--chart-2))",
+            "hsl(var(--chart-3))",
+            "hsl(var(--chart-4))",
+            "hsl(var(--chart-5))",
+        ];
 
-        if (value === "quarterly") {
-            const quarterIndex = Math.floor(new Date().getMonth() / 3) || 0;
-            const quarter = generateQuarters(new Date().getFullYear())[quarterIndex];
-            const year = new Date().getFullYear();
-            updatedFilters.filter = value;
-            updatedFilters.options = { ...updatedFilters.options, year, quarter };
-        } else {
-            updatedFilters.filter = value;
+        if (data.length > 0) {
+            Object.keys(data[0]).forEach((key, index) => {
+                if (!['period', 'industry', 'total'].includes(key)) {
+                    config[key] = {
+                        label: capitalizeFirstLetter(key.replace(/([A-Z])/g, ' $1').trim()),
+                        color: colors[index % colors.length],
+                    };
+                }
+            });
         }
 
-        setFilters(updatedFilters);
-        onFiltersChange(updatedFilters);
-    };
-
-    const onOptionChange = (key: string, value: string) => {
-        const updatedFilters = {
-            ...filters,
-            options: { ...filters.options, [key]: value },
-        };
-
-        setFilters(updatedFilters);
-        onFiltersChange(updatedFilters);
-    };
-
-    const productOptions = useMemo(() => {
-        return products.map(product => ({
-            value: product._id,
-            label: product.name
-        })) || []
-    }, [products])
+        return config;
+    }, [data]);
 
     return (
-        <Card className="w-full">
-            <CardHeader className="justify-between flex-row">
-                <div>
-                    <Typography variant="h1" className="text-3xl font-bold">
-                        {header}
-                    </Typography>
-                    <Typography variant="p" className="text-sm !text-gray-500">
-                        {description}
-                    </Typography>
-                </div>
-                <div className="flex justify-center items-center gap-3 flex-wrap">
-                    {filters.filter === "quarterly" && (
-                        <SelectComponent
-                            onValueChange={(value) => onOptionChange("quarter", value)}
-                            placeholder={filters.options?.quarter || "Select a Quarter"}
-                            options={
-                                generateQuarters(Number(filters.options?.year) || new Date().getFullYear()).map(
-                                    (q) => ({
-                                        value: q,
-                                        label: q,
-                                    })
-                                )
-                            }
-                        />
-                    )}
-
-                    {filters.filter !== "all" && (
-                        <SelectComponent
-                            onValueChange={(value) => onOptionChange("year", value)}
-                            placeholder={filters.options?.year?.toString() || "Select a Year"}
-                            options={generateYears().map((year) => ({
-                                value: year.toString(),
-                                label: year.toString(),
-                            }))}
-                        />
-                    )}
-
-                    <SelectComponent
-                        onValueChange={onFilterChange}
-                        placeholder={filters.filter ? capitalizeFirstLetter(filters.filter) : "Select a filter"}
-                        options={filterOptions}
-                    />
-
-                    <SelectComponent
-                        onValueChange={(value) => onOptionChange("productId", value)}
-                        placeholder={"Select a Product"}
-                        options={productOptions}
-                    />
-                </div>
-
+        <Card className="w-1/3 flex-1">
+            <CardHeader >
+                <Typography variant="h2" className="font-bold">
+                    {header}
+                </Typography>
+                <Typography variant="p" className="text-xs !text-gray-500">
+                    {description}
+                </Typography>
             </CardHeader>
             <CardContent className="px-6">
                 {
                     isLoading ?
                         <Loading /> : data.length ?
                             <ChartContainer
-                                ref={chartRef}
                                 config={chartConfig}
-                                className="h-[300px] w-full mt-4"
+                                className={cn("h-[200px] w-full mt-4", chartConfigClassName)}
                             >
                                 <ResponsiveContainer width="100%" height={400}>
                                     <BarChart data={data}>
                                         <CartesianGrid vertical={false} strokeDasharray="3 3" />
                                         <XAxis
-                                            dataKey="period"
+                                            dataKey="industry"
                                             tickLine={false}
                                             tick={{ fill: "hsl(var(--foreground))" }}
                                         />
                                         <YAxis
                                             tickLine={false}
                                             tick={{ fill: "hsl(var(--foreground))" }}
-                                            tickFormatter={(value) => `₹${value / 1000}k`}
+                                            tickFormatter={(value) => millify(value)}
                                         />
-                                        <Tooltip content={<ChartTooltipContent />} />
+                                        <Tooltip content={<CustomTooltip />} />
                                         <Legend content={<ChartLegendContent />} />
-                                        <Bar
-                                            dataKey="totalExpected"
-                                            stackId="a"
-                                            fill={chartConfig.totalExpected.color}
-                                            radius={[4, 4, 0, 0]}
-                                        />
-                                        <Bar
-                                            dataKey="totalCollected"
-                                            stackId="a"
-                                            fill={chartConfig.totalCollected.color}
-                                            radius={[4, 4, 0, 0]}
-                                        />
+                                        {Object.keys(chartConfig).map((key, index) => (
+                                            <Bar
+                                                key={key}
+                                                dataKey={key}
+                                                stackId="a"
+                                                fill={chartConfig[key].color}
+                                                radius={
+                                                    index === Object.keys(chartConfig).length ?
+                                                        [4, 4, 0, 0] : [0, 0, 0, 0]}
+                                            />
+                                        ))}
                                     </BarChart>
                                 </ResponsiveContainer>
                             </ChartContainer>
                             : <Typography variant="p" className="text-center">No data available</Typography>
                 }
             </CardContent>
-            <CardFooter className="flex justify-end">
-                <Button onClick={handleDownloadPDF}>Download Report</Button>
-            </CardFooter>
         </Card>
     );
 };
 
-export default StackedChart;
+CustomTooltip.displayName="CustomTooltip";
+
+export default MultipleStackedChart;
+

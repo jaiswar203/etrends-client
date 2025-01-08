@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/table"
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Plus } from 'lucide-react'
+import { Calendar, DollarSign, Headphones, Key, Package, Plus, Wrench } from 'lucide-react'
 import { dateToHumanReadable } from '@/lib/utils'
 import {
     Dialog,
@@ -30,6 +30,7 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog"
+import { Separator } from '@/components/ui/separator'
 
 interface OrderDetailModalProps {
     open: boolean
@@ -82,51 +83,77 @@ const RevenueBreakdownTable = ({ breakdown, total }: RevenueBreakdownProps) => {
 }
 
 
-function OrderDetailModal({ open, onOpenChange, data }: OrderDetailModalProps) {
+export function OrderDetailModal({ open, onOpenChange, data }: OrderDetailModalProps) {
     if (!data) return null
+
+    const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount)
+    }
+
+    const formatDate = (dateString: string) => {
+        return new Date(dateString).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        })
+    }
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-3xl max-h-[80vh] overflow-auto flex flex-col">
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>Order Breakdown</DialogTitle>
+                    <DialogTitle className="text-2xl font-bold">Order Breakdown</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-6 p-4">
+
+                <div className="space-y-6 p-4 overflow-y-auto">
                     <Card>
-                        <CardHeader>
+                        <CardHeader className="flex flex-row items-center space-x-4 pb-2">
+                            <Package className="h-5 w-5 text-muted-foreground" />
                             <CardTitle>Products</CardTitle>
                         </CardHeader>
-                        <CardContent className='overflow-y-auto'>
-                            {data.products.map((product: any) => (
-                                <Badge key={product.id} variant="outline" className="mr-2">
-                                    {product.name}
-                                </Badge>
-                            ))}
+                        <CardContent>
+                            <div className="flex flex-wrap gap-2">
+                                {data.products.map((product: any) => (
+                                    <Badge key={product.id} variant="secondary">
+                                        {product.name}
+                                    </Badge>
+                                ))}
+                            </div>
                         </CardContent>
                     </Card>
 
                     <Card>
-                        <CardHeader>
+                        <CardHeader className="flex flex-row items-center space-x-4 pb-2">
+                            <DollarSign className="h-5 w-5 text-muted-foreground" />
                             <CardTitle>Base Cost</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-2xl font-bold">₹{data.base_cost.toLocaleString('en-IN')}</p>
+                            <p className="text-2xl font-bold">{formatCurrency(data.base_cost)}</p>
                         </CardContent>
                     </Card>
 
                     {data.licenses.length > 0 && (
                         <Card>
-                            <CardHeader>
+                            <CardHeader className="flex flex-row items-center space-x-4 pb-2">
+                                <Key className="h-5 w-5 text-muted-foreground" />
                                 <CardTitle>Licenses</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 {data.licenses.map((license: any) => (
                                     <div key={license.id} className="mb-4 last:mb-0">
-                                        <p>Quantity: {license.total_license}</p>
-                                        <p>Cost per License: ₹{license.rate.amount.toLocaleString('en-IN')}</p>
-                                        <p className="text-lg font-bold mt-1">
-                                            Total: ₹{(license.total_license * license.rate.amount).toLocaleString('en-IN')}
-                                        </p>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-muted-foreground">Quantity:</span>
+                                            <span>{license.total_license}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-muted-foreground">Cost per License:</span>
+                                            <span>{formatCurrency(license.rate.amount)}</span>
+                                        </div>
+                                        <Separator className="my-2" />
+                                        <div className="flex justify-between items-center font-semibold">
+                                            <span>Total:</span>
+                                            <span>{formatCurrency(license.total_license * license.rate.amount)}</span>
+                                        </div>
                                     </div>
                                 ))}
                             </CardContent>
@@ -135,16 +162,22 @@ function OrderDetailModal({ open, onOpenChange, data }: OrderDetailModalProps) {
 
                     {data.customizations.length > 0 && (
                         <Card>
-                            <CardHeader>
+                            <CardHeader className="flex flex-row items-center space-x-4 pb-2">
+                                <Wrench className="h-5 w-5 text-muted-foreground" />
                                 <CardTitle>Customizations</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 {data.customizations.map((customization: any) => (
                                     <div key={customization.id} className="mb-4 last:mb-0">
-                                        <p>Modules: {customization.modules.join(', ')}</p>
-                                        <p className="text-lg font-bold mt-1">
-                                            Cost: ₹{customization.cost.toLocaleString('en-IN')}
-                                        </p>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm text-muted-foreground">Modules:</span>
+                                            <span>{customization.modules.join(', ')}</span>
+                                        </div>
+                                        <Separator className="my-2" />
+                                        <div className="flex justify-between items-center font-semibold">
+                                            <span>Cost:</span>
+                                            <span>{formatCurrency(customization.cost)}</span>
+                                        </div>
                                     </div>
                                 ))}
                             </CardContent>
@@ -153,16 +186,17 @@ function OrderDetailModal({ open, onOpenChange, data }: OrderDetailModalProps) {
 
                     {data.additional_services.length > 0 && (
                         <Card>
-                            <CardHeader>
+                            <CardHeader className="flex flex-row items-center space-x-4 pb-2">
+                                <Headphones className="h-5 w-5 text-muted-foreground" />
                                 <CardTitle>Additional Services</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 {data.additional_services.map((service: any) => (
                                     <div key={service.id} className="mb-4 last:mb-0">
-                                        <p className="font-semibold">{service.title}</p>
-                                        <p className="text-lg font-bold mt-1">
-                                            Cost: ₹{service.cost.toLocaleString('en-IN')}
-                                        </p>
+                                        <div className="flex justify-between items-center">
+                                            <span className="font-semibold">{service.title}</span>
+                                            <span>{formatCurrency(service.cost)}</span>
+                                        </div>
                                     </div>
                                 ))}
                             </CardContent>
@@ -170,14 +204,29 @@ function OrderDetailModal({ open, onOpenChange, data }: OrderDetailModalProps) {
                     )}
 
                     <Card>
-                        <CardHeader>
+                        <CardHeader className="flex flex-row items-center space-x-4 pb-2">
+                            <Calendar className="h-5 w-5 text-muted-foreground" />
                             <CardTitle>AMC Details</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <p>Total Cost: ₹{data.amc_details.total_cost.toLocaleString('en-IN')}</p>
-                            <p>Frequency: {data.amc_details.amc_frequency_in_months} months</p>
-                            <p>Start Date: {new Date(data.amc_details.start_date).toLocaleDateString()}</p>
-                            <p>AMC Percentage: {data.amc_details.amc_percentage}%</p>
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm text-muted-foreground">Total Cost:</span>
+                                    <span>{formatCurrency(data.amc_details.total_cost)}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm text-muted-foreground">Frequency:</span>
+                                    <span>{data.amc_details.amc_frequency_in_months} months</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm text-muted-foreground">Start Date:</span>
+                                    <span>{formatDate(data.amc_details.start_date)}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm text-muted-foreground">AMC Percentage:</span>
+                                    <span>{data.amc_details.amc_percentage}%</span>
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>

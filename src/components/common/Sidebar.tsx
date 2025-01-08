@@ -20,7 +20,7 @@ import { Avatar, AvatarImage } from "../ui/avatar"
 import { AvatarFallback } from "@radix-ui/react-avatar"
 import { usePathname } from "next/navigation"
 import { useAppSelector } from "@/redux/hook"
-import { Bell } from "lucide-react"
+import { Bell, CircleDashed } from "lucide-react"
 
 // Menu items.
 const items = [
@@ -28,11 +28,6 @@ const items = [
         title: "Clients",
         url: "clients",
         icon: MdOutlinePeopleAlt,
-    },
-    {
-        title: "Products",
-        url: "products",
-        icon: GoPackage,
     },
     {
         title: "Purchases",
@@ -45,6 +40,11 @@ const items = [
         icon: HiOutlineWrenchScrewdriver,
     },
     {
+        title: "Pending Payments",
+        url: "pending-payments",
+        icon: CircleDashed,
+    },
+    {
         title: "Reminders",
         url: "reminders",
         icon: Bell,
@@ -53,6 +53,11 @@ const items = [
         title: "Reports",
         url: "reports",
         icon: TbReportAnalytics,
+    },
+    {
+        title: "Products",
+        url: "products",
+        icon: GoPackage,
     },
 ]
 
@@ -79,18 +84,18 @@ export function AppSidebar() {
                         <SidebarMenuItem key={item.title}>
                             <SidebarMenuButton
                                 asChild
-                                className="[&>svg]:size-5"
+                                className="[&>svg]:size-5 !data-[active=true]:bg-black[data-active=true] "
                                 isActive={isActive(item.url)}
                             >
                                 <Link href={`/${item.url}`} className="mb-2">
                                     <item.icon
                                         size={20}
-                                        className={`text-3xl ${isActive(item.url) ? "text-primary" : "text-black"
+                                        className={`text-3xl ${isActive(item.url) ? "text-white" : "text-black"
                                             }`}
                                     />
                                     <Typography
                                         variant="h4"
-                                        className={`font-normal ${isActive(item.url) ? "text-primary font-medium" : ""
+                                        className={`font-normal ${isActive(item.url) ? "text-white font-medium" : ""
                                             }`}
                                     >
                                         {item.title}

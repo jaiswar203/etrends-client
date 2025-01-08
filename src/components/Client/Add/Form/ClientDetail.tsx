@@ -62,7 +62,7 @@ const ClientDetail: React.FC<IProps> = ({ handler, disable = false, defaultValue
     }, [parentCompanies])
 
     useEffect(() => {
-        if (defaultValue?._id && defaultValue.parent_company.name) setParentCompanyInput(prev => ({ ...prev, value: defaultValue.parent_company.name }))
+        if (defaultValue?._id && defaultValue.parent_company?.name) setParentCompanyInput(prev => ({ ...prev, value: defaultValue.parent_company.name }))
     }, [defaultValue])
 
     const form = useForm<ClientDetailsInputs>({
@@ -84,15 +84,15 @@ const ClientDetail: React.FC<IProps> = ({ handler, disable = false, defaultValue
         },
         ...(defaultValue && {
             values: {
-                parent_company: defaultValue.parent_company || {},
+                parent_company: defaultValue?.parent_company || {},
                 name: defaultValue.name,
-                pan_number: decrypt(defaultValue.pan_number),
-                gst_number: decrypt(defaultValue.gst_number),
+                pan_number: defaultValue?.pan_number ? decrypt(defaultValue.pan_number) : "",
+                gst_number: defaultValue?.gst_number ? decrypt(defaultValue.gst_number) : "",
                 industry: defaultValue.industry || "",
-                vendor_id: decrypt(defaultValue.vendor_id as string || ""),
-                client_id: defaultValue.client_id,
-                point_of_contacts: defaultValue.point_of_contacts || [],
-                address: defaultValue.address,
+                vendor_id: defaultValue?.vendor_id ? decrypt(defaultValue.vendor_id as string) : "",
+                client_id: defaultValue?.client_id || "",
+                point_of_contacts: defaultValue?.point_of_contacts || [],
+                address: defaultValue?.address || "",
                 amc_frequency_in_months: defaultValue?.amc_frequency_in_months || 12
             }
         })
@@ -267,12 +267,12 @@ const ClientDetail: React.FC<IProps> = ({ handler, disable = false, defaultValue
                                             {
                                                 filteredParentCompany.map((company) => (
                                                     <div key={company._id} className="flex items-center justify-between p-2  cursor-pointer hover:bg-gray-50" onClick={() => {
-                                                        form.setValue("parent_company.id", company._id)
-                                                        form.setValue("parent_company.name", company.name)
+                                                        form.setValue("parent_company.id", company?._id)
+                                                        form.setValue("parent_company.name", company?.name)
                                                         form.setValue("parent_company.new", false)
-                                                        setParentCompanyInput(prev => ({ ...prev, value: company.name }))
+                                                        setParentCompanyInput(prev => ({ ...prev, value: company?.name }))
                                                     }}>
-                                                        <Typography variant='p' className='text-sm'>{company.name}</Typography>
+                                                        <Typography variant='p' className='text-sm'>{company?.name}</Typography>
                                                     </div>
                                                 ))
                                             }
@@ -281,11 +281,11 @@ const ClientDetail: React.FC<IProps> = ({ handler, disable = false, defaultValue
                                                     <div className="flex items-center justify-center p-2 w-full gap-2 cursor-pointer" onClick={() => {
                                                         form.setValue("parent_company.new", true)
                                                         form.setValue("parent_company.id", "")
-                                                        form.setValue("parent_company.name", parentCompanyInput.value)
+                                                        form.setValue("parent_company.name", parentCompanyInput?.value)
                                                     }}>
                                                         <Plus className='!w-6 !h-6' />
                                                         <Typography variant='p' className='text-sm'>
-                                                            Add {parentCompanyInput.value}
+                                                            Add {parentCompanyInput?.value}
                                                         </Typography>
                                                     </div>
                                                 )

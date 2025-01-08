@@ -86,13 +86,13 @@ const ClientDetail: React.FC<IProps> = ({ handler, disable = false, defaultValue
             values: {
                 parent_company: defaultValue?.parent_company || {},
                 name: defaultValue.name,
-                pan_number: decrypt(defaultValue.pan_number),
-                gst_number: decrypt(defaultValue.gst_number),
+                pan_number: defaultValue?.pan_number ? decrypt(defaultValue.pan_number) : "",
+                gst_number: defaultValue?.gst_number ? decrypt(defaultValue.gst_number) : "",
                 industry: defaultValue.industry || "",
-                vendor_id: decrypt(defaultValue.vendor_id as string || ""),
-                client_id: defaultValue.client_id,
-                point_of_contacts: defaultValue.point_of_contacts || [],
-                address: defaultValue.address,
+                vendor_id: defaultValue?.vendor_id ? decrypt(defaultValue.vendor_id as string) : "",
+                client_id: defaultValue?.client_id || "",
+                point_of_contacts: defaultValue?.point_of_contacts || [],
+                address: defaultValue?.address || "",
                 amc_frequency_in_months: defaultValue?.amc_frequency_in_months || 12
             }
         })

@@ -49,7 +49,7 @@ interface IProps {
 
 const ClientDetail: React.FC<IProps> = ({ handler, disable = false, defaultValue, disableAccordion = false }) => {
     const [disableInput, setDisableInput] = useState(disable)
-    const [isLoading, setIsLoading] = useState(false)
+    // const [isLoading, setIsLoading] = useState(false)
     const router = useRouter()
 
     const [filteredParentCompany, setFilteredParentCompany] = useState<{ _id: string, name: string }[]>([])
@@ -109,14 +109,14 @@ const ClientDetail: React.FC<IProps> = ({ handler, disable = false, defaultValue
     }
 
     const onSubmit: SubmitHandler<ClientDetailsInputs> = async (data) => {
-        setIsLoading(true)
+        // setIsLoading(true)
         try {
             const dbClientId = await handler({ ...data, amc_frequency_in_months: Number(data.amc_frequency_in_months) })
             if (!defaultValue?._id && dbClientId)
                 router.push(`/clients/${dbClientId}`)
             else if (defaultValue?._id)
                 setDisableInput(true)
-            setIsLoading(false)
+            // setIsLoading(false)
         } catch (error) {
             console.error("Error submitting form:", error)
         }

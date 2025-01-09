@@ -1,10 +1,10 @@
-import AMC from '@/components/AMC/AMCDetail'
+import ProductDetail from '@/components/Product/ProductDetail'
 import { use } from 'react'
 import React from 'react'
 
 const Page = ({ params }: { params: Promise<{ id: string }> }) => {
-    const { id: orderId } = use(params)
-    return <AMC orderId={orderId} />
+    const { id } = use(params)
+    return <ProductDetail id={id} />
 }
 
 export default Page

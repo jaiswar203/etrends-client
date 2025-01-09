@@ -109,6 +109,10 @@ export interface IOrderObject {
   customization: ICustomizationObject;
   customizations?: ICustomizationObject[];
   licenses?: ILicenceObject[];
+  is_purchased_with_order: {
+    customization: boolean; // if customization is purchased with order than it always the first elemenet of the customizations array
+    license: boolean;
+  };
   additional_services?: IAdditionalServiceObject[];
   _id: string;
 }

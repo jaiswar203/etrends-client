@@ -101,8 +101,7 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
         if (defaultValue?._id) {
             setDisableInput(true)
 
-            if (defaultValue?.customization?._id)
-                setEnableCustomization(true)
+            setEnableCustomization(!!defaultValue?.is_purchased_with_order?.customization)
         }
     }, [defaultValue])
 
@@ -120,14 +119,6 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                 date: new Date(term.date)
             })) : [
                 {
-                    name: "UAT",
-                    percentage_from_base_cost: 0,
-                    calculated_amount: 0,
-                    date: undefined,
-                    status: PAYMENT_STATUS_ENUM.PENDING,
-                    payment_receive_date: undefined
-                },
-                {
                     name: "Deployment",
                     percentage_from_base_cost: 0,
                     calculated_amount: 0,
@@ -136,7 +127,15 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                     payment_receive_date: undefined
                 },
                 {
-                    name: "Signoff",
+                    name: "UAT Sign off",
+                    percentage_from_base_cost: 0,
+                    calculated_amount: 0,
+                    date: undefined,
+                    status: PAYMENT_STATUS_ENUM.PENDING,
+                    payment_receive_date: undefined
+                },
+                {
+                    name: "Production Live Instance",
                     percentage_from_base_cost: 0,
                     calculated_amount: 0,
                     date: undefined,
@@ -144,11 +143,7 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                     payment_receive_date: undefined
                 },
             ],
-        agreements: [{
-            start: undefined,
-            end: undefined,
-            document: ""
-        }],
+        agreements: [],
         total_cost: 0,
         license: "",
         cost_per_license: 0,
@@ -398,7 +393,8 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
         name: RenderFormFieldNameType,
         label: string | null,
         placeholder: string,
-        type: string = "text"
+        type: string = "text",
+        optional: boolean = false
     ) => {
         const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: any) => {
             const value = parseFloat(e.target.value) || 0;
@@ -480,6 +476,11 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                         {label && (
                             <FormLabel className='text-gray-500 relative block w-fit'>
                                 {label}
+                                {
+                                    optional && (
+                                        <span className='text-xs text-gray-400 ml-1'>Optional</span>
+                                    )
+                                }
                                 {(type === "file" && field.value && !disableInput) ? (
                                     <TooltipProvider>
                                         <Tooltip>
@@ -545,6 +546,16 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
             return;
         }
 
+        const totalPercentage = data.payment_terms.reduce((sum: number, t: any) => sum + (Number(t.percentage_from_base_cost) || 0), 0);
+        if (Math.round(totalPercentage) !== 100) {
+            toast({
+                variant: "destructive",
+                title: "Validation Error",
+                description: "Payment terms must sum exactly to 100% of the base cost"
+            });
+            return;
+        }
+
         // Validate payment terms data
         for (const term of data.payment_terms) {
             if (term.status === PAYMENT_STATUS_ENUM.PAID && !term.payment_receive_date) {
@@ -571,16 +582,6 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                 variant: "destructive",
                 title: "Validation Error",
                 description: "Invoice Document is required"
-            });
-            return;
-        }
-
-        // Validate Agreement Date
-        if (!data.agreements?.length || !data.agreements[0].start || !data.agreements[0].end) {
-            toast({
-                variant: "destructive",
-                title: "Validation Error",
-                description: "Agreement Date is required"
             });
             return;
         }
@@ -1270,14 +1271,14 @@ const OrderDetail: React.FC<OrderProps> = ({ title, handler, defaultValue, updat
                                             </FormItem>
                                         )}
                                     />
-                                    {renderFormField("purchase_order_document", "PO Document", "", "file")}
+                                    {renderFormField("purchase_order_document", "PO Document", "", "file", true)}
                                 </div>
                                 <div className="md:flex items-end gap-4 w-full mt-6">
                                     {renderFormField("invoice_document", "Invoice Document", "", "file")}
-                                    {renderFormField("other_document.url", "Other Document", "", "file")}
+                                    {renderFormField("other_document.url", "Other Document", "", "file", true)}
                                 </div>
                                 <div className=" mt-6">
-                                    <Typography variant='h3' className='mb-3'>Agreement Date</Typography>
+                                    <Typography variant='h3' className='mb-3'>Agreement Date <span className='text-xs text-gray-400 ml-1'>Optional</span> </Typography>
                                     {
                                         agreementDateFields.map((_, index: number) => (
                                             <div className="md:flex items-end mb-4 justify-between gap-4 w-full" key={index}>

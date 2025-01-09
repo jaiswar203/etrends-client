@@ -21,7 +21,7 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { industriesArray } from '@/contants/client'
-import { CircleCheck, Bell, CirclePlus, X, Edit, CircleX, Plus } from 'lucide-react'
+import { Bell, CirclePlus, X, Edit, CircleX, Plus } from 'lucide-react'
 import {
     Accordion,
     AccordionContent,
@@ -342,12 +342,6 @@ const ClientDetail: React.FC<IProps> = ({ handler, disable = false, defaultValue
                                 <Typography variant='p' className='text-black group-hover:text-white'>Add more POC</Typography>
                             </Button>
                         </div>
-                    </div>
-                    <div className="flex justify-end">
-                        <Button type="submit" disabled={disableInput} loading={{ isLoading, loader: "tailspin" }} className='w-full md:w-36 '>
-                            <CircleCheck />
-                            <span className='text-white'>Save changes</span>
-                        </Button>
                     </div>
                 </form>
             </Form>

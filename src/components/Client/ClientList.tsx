@@ -53,7 +53,7 @@ export const columns: ColumnDef<{ id: string; name: string; industry: string; pr
                 </Button>
             )
         },
-        cell: ({ row }) => <div className="lowercase">{row.getValue('name')}</div>,
+        cell: ({ row }) => <div>{row.getValue('name')}</div>,
     },
     {
         accessorKey: 'industry',
@@ -75,7 +75,6 @@ export const columns: ColumnDef<{ id: string; name: string; industry: string; pr
         },
     },
 ]
-
 
 
 const ClientList: React.FC<IProps> = ({ data: clientData }) => {
